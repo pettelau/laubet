@@ -1,5 +1,5 @@
-from typing import List
-from fastapi import HTTPException
+from typing import List, Optional
+from fastapi import HTTPException, Response
 from time import sleep
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -930,65 +930,91 @@ async def get_users():
 
 
 @app.get("/api/bonde/stats")
-async def get_stats():
+async def get_stats(
+    playerIds: Optional[str] = None, exclusiveselect: Optional[str] = "False"
+):
     # Fetching needed data from db
     try:
-        query_rounds = """
-        SELECT round_id, SUM(num_tricks), MAX(num_cards) as num_cards
+        print(playerIds)
+        base_query = """
+        SELECT SUM(num_tricks), MAX(num_cards) as num_cards
         FROM player_scores
-        NATURAL JOIN rounds
+        NATURAL JOIN rounds LEFT JOIN games on rounds.game_id = games.game_id
         WHERE stand IS NOT NULL
-        GROUP BY round_id ORDER BY num_cards DESC;
-       """
-        result1 = fetchDBJsonNew(query_rounds)
 
-        num_underbid = 0
-        num_overbid = 0
-        total_diff = 0
+        """
+        exclusive = exclusiveselect.lower() == "true"
+        print(exclusive)
+        # If playerIds are provided, filter results
+        if playerIds:
+            ids_list = playerIds.split(",")
 
-        diffs = {}
-        counts = {}
-        chart_data = []
-        for row in result1:
-            round_id = row["round_id"]
-            sum_val = row["sum"]
-            num_cards = row["num_cards"]
-            if sum_val < num_cards:
-                num_underbid += 1
+            # Convert the string IDs to integers
+            ids_list = [int(id) for id in ids_list]
+
+            print(",".join([str(id) for id in ids_list]))
+
+            base_query += f" AND games.game_id IN (SELECT game_id \
+                            FROM game_players \
+                            WHERE player_id IN ({','.join([str(id) for id in ids_list])}) \
+                            GROUP BY game_id"
+            print(base_query)
+
+            if exclusive:
+                base_query += f" HAVING COUNT(DISTINCT player_id) = {len(ids_list)})"
             else:
-                num_overbid += 1
-            total_diff += sum_val - num_cards
+                base_query += ")"
 
-            difference = sum_val - num_cards
+        base_query += " GROUP BY round_id ORDER BY num_cards DESC;"
 
-            # Update diffs and counts dictionaries
-            if num_cards in diffs:
-                diffs[num_cards] += difference
-                counts[num_cards] += 1
-            else:
-                diffs[num_cards] = difference
-                counts[num_cards] = 1
+        result1 = fetchDBJsonNew(base_query)
+        if result1:
+            num_underbid = 0
+            num_overbid = 0
+            total_diff = 0
 
-        total_avg_diff = round((total_diff / len(result1)), 1)
-        for num_cards in diffs:
-            avg_diff = round(diffs[num_cards] / counts[num_cards], 2)
-            chart_data.append({"name": str(num_cards), "value": avg_diff})
+            diffs = {}
+            counts = {}
+            chart_data = []
+            for row in result1:
+                sum_val = row["sum"]
+                num_cards = row["num_cards"]
+                if sum_val < num_cards:
+                    num_underbid += 1
+                else:
+                    num_overbid += 1
+                total_diff += sum_val - num_cards
 
-        print(chart_data)
+                difference = sum_val - num_cards
 
-        perc_underbid = round(num_underbid / len(result1) * 100, 1)
-        print(diffs)
-        return {
-            "perc_underbid": perc_underbid,
-            "total_avg_diff": total_avg_diff,
-            "avg_diffs": chart_data,
-        }
+                # Update diffs and counts dictionaries
+                if num_cards in diffs:
+                    diffs[num_cards] += difference
+                    counts[num_cards] += 1
+                else:
+                    diffs[num_cards] = difference
+                    counts[num_cards] = 1
+
+            total_avg_diff = round((total_diff / len(result1)), 1)
+            for num_cards in diffs:
+                avg_diff = round(diffs[num_cards] / counts[num_cards], 2)
+                chart_data.append({"name": str(num_cards), "value": avg_diff})
+
+            print(chart_data)
+
+            perc_underbid = round(num_underbid / len(result1) * 100, 1)
+            print(diffs)
+            return {
+                "perc_underbid": perc_underbid,
+                "total_avg_diff": total_avg_diff,
+                "avg_diffs": chart_data,
+            }
+        else:
+            print("empty set")
+            return Response(status_code=204)
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=400, detail=f"Error: {e}")
-
-    # concat the data and calculate and structure interesting stats
-
-    # send back to frontend
 
 
 @app.get("/api/bonde/game/{game_id}")

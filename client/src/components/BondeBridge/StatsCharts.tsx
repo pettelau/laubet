@@ -17,29 +17,32 @@ import {
   CartesianGrid,
   ReferenceLine,
   Legend,
+  ResponsiveContainer,
 } from "recharts";
 
 const COLORS = ["#303C6C", "#00C49F"];
 
 export const SimplePieChart: React.FC<SimplePieChartProps> = ({ data }) => {
   return (
-    <PieChart width={400} height={250}>
-      <Pie
-        dataKey="value"
-        isAnimationActive={true}
-        data={data}
-        cx="50%"
-        cy="50%"
-        outerRadius={80}
-        fill="#8884d8"
-        label={(entry) => `${entry.name} - ${entry.value}%`}
-      >
-        {data.map((entry, index) => (
-          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-        ))}
-      </Pie>
-      <Tooltip />
-    </PieChart>
+    <ResponsiveContainer width="100%" height={250}>
+      <PieChart>
+        <Pie
+          dataKey="value"
+          isAnimationActive={false}
+          data={data}
+          cx="50%"
+          cy="50%"
+          outerRadius={80}
+          fill="#8884d8"
+          label={(entry) => `${entry.name} - ${entry.value}%`}
+        >
+          {data.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+          ))}
+        </Pie>
+        <Tooltip />
+      </PieChart>
+    </ResponsiveContainer>
   );
 };
 
@@ -69,26 +72,27 @@ export const PositiveAndNegativeBarChart: React.FC<
   PositiveAndNegativeBarChartProps
 > = ({ data }) => {
   return (
-    <BarChart
-      width={600}
-      height={300}
-      data={data}
-      stackOffset="sign"
-      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-    >
-      <CartesianGrid strokeDasharray="3 3" />
-      <XAxis dataKey="name" />
-      <YAxis />
-      <Tooltip content={<CustomTooltip />} />
-      <Bar dataKey="value" stackId="stack">
-        {data.map((entry, index) => (
-          <Cell
-            key={`cell-${index}`}
-            fill={entry.value < 0 ? COLORS[0] : COLORS[1]}
-          />
-        ))}
-      </Bar>
-    </BarChart>
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart
+
+        data={data}
+        stackOffset="sign"
+        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" />
+        <YAxis />
+        <Tooltip content={<CustomTooltip />} />
+        <Bar dataKey="value" stackId="stack">
+          {data.map((entry, index) => (
+            <Cell
+              key={`cell-${index}`}
+              fill={entry.value < 0 ? COLORS[0] : COLORS[1]}
+            />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 };
 
@@ -138,25 +142,25 @@ const needle = (
 
 export const GaugeWithNeedle: React.FC<{ value: number }> = ({ value }) => {
   return (
-    <PieChart width={400} height={200}>
-      <Pie
-        dataKey="value"
-        startAngle={180}
-        endAngle={0}
-        data={data.map((d) => ({ ...d, value: total / data.length }))}
-        cx={cx}
-        cy={cy}
-        innerRadius={iR}
-        outerRadius={oR}
-        fill="#8884d8"
-        stroke="none"
-      >
-        {data.map((entry, index) => (
-          <Cell key={`cell-${index}`} fill={entry.color} />
-        ))}
-      </Pie>
-      {needle(value, cx, cy, iR, oR, "#d0d000")}
-    </PieChart>
+      <PieChart width={400} height={200}>
+        <Pie
+          dataKey="value"
+          startAngle={180}
+          endAngle={0}
+          data={data.map((d) => ({ ...d, value: total / data.length }))}
+          cx={cx}
+          cy={cy}
+          innerRadius={iR}
+          outerRadius={oR}
+          fill="#8884d8"
+          stroke="none"
+        >
+          {data.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={entry.color} />
+          ))}
+        </Pie>
+        {needle(value, cx, cy, iR, oR, "#d0d000")}
+      </PieChart>
   );
 };
 

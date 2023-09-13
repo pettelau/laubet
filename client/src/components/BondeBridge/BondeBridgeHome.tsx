@@ -8,6 +8,7 @@ import {
   Divider,
   Fab,
   FormControl,
+  FormControlLabel,
   Grid,
   InputAdornment,
   InputLabel,
@@ -16,6 +17,7 @@ import {
   Select,
   SelectChangeEvent,
   Snackbar,
+  Switch,
   Tab,
   Tabs,
   TextField,
@@ -98,6 +100,12 @@ export default function BondeBridgeHome() {
   const [stats, setStats] = useState<Stats>();
 
   const [users, setUsers] = useState<BondeUser[]>([]);
+
+  const [selectedUserIDs, setSelectedUserIDs] = useState<number[]>([13]);
+
+  const [exclusiveSelect, setExclusiveSelect] = useState<boolean>(false);
+
+  const [emptyStatsSet, setEmptyStatsSet] = useState<boolean>(false);
 
   const [players, setPlayers] = useState<PlayerPreGame[]>([]);
 
@@ -245,11 +253,35 @@ export default function BondeBridgeHome() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`${url_path}api/bonde/stats`);
+      let endpoint = `${url_path}api/bonde/stats`;
+
+      const queryParams = [];
+      // Convert the playerIds array to a comma-separated string and attach as a query parameter
+      if (selectedUserIDs.length) {
+        const idsString = selectedUserIDs.join(",");
+        queryParams.push(`playerIds=${idsString}`);
+      }
+
+      if (exclusiveSelect) {
+        queryParams.push("exclusiveselect=True");
+      }
+
+      if (queryParams.length) {
+        endpoint += `?${queryParams.join("&")}`;
+      }
+
+      const response = await fetch(endpoint);
+      if (response.status === 204) {
+        setEmptyStatsSet(true);
+        setStats(undefined);
+        return;
+      }
       const data = await response.json();
+
       console.log(data);
       setStats(data as Stats);
     } catch (err) {
+      setEmptyStatsSet(false);
       setError("Noe gikk galt. Kunne ikke hente eksisterende spill");
       console.error(err);
     }
@@ -260,6 +292,14 @@ export default function BondeBridgeHome() {
     fetchGames();
     fetchStats();
   }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [selectedUserIDs, exclusiveSelect]);
+
+  const handleSwitchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setExclusiveSelect(event.target.checked);
+  };
 
   const handlePlayerSelect = (event: any, newValues: BondeUser[] | null) => {
     // Convert the BondeUser to Player type with score initialized to 0
@@ -555,6 +595,45 @@ export default function BondeBridgeHome() {
         </CustomTabPanel>
         <CustomTabPanel value={value} index={2}>
           <div id="stats">
+            <div
+              style={{
+                maxWidth: "90%",
+                width: "100%",
+                margin: "auto",
+              }}
+            >
+              <Autocomplete
+                multiple
+                id="player-select"
+                options={users}
+                getOptionLabel={(option) => option.nickname}
+                value={users.filter((user) =>
+                  selectedUserIDs.includes(user.player_id)
+                )}
+                onChange={(_, newValue) => {
+                  setSelectedUserIDs(newValue.map((user) => user.player_id));
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    variant="outlined"
+                    label="Filtrer statistikk på spillere"
+                    placeholder="Spillere"
+                  />
+                )}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={exclusiveSelect}
+                    disabled={selectedUserIDs.length < 2 ? true : false}
+                    onChange={handleSwitchChange}
+                    inputProps={{ "aria-label": "controlled" }}
+                  />
+                }
+                label="Vis kun stats hvor alle de valgte spillere er involvert samtidig"
+              />
+            </div>
             {stats ? (
               <>
                 <h2>UNDERMELDT VS OVERMELDT</h2>
@@ -566,11 +645,22 @@ export default function BondeBridgeHome() {
                 />
                 <h2>GJ.SNITT OVER/UNDERMELDT PER ANTALL KORT</h2>
                 <PositiveAndNegativeBarChart data={stats.avg_diffs} />
-                <h2 >GJENNOMSNITTLIG <br />UNDERMELDT/OVERMELDT:</h2>
-<div style={{marginTop: -100, paddingLeft: 94}}>
-                <GaugeWithNeedle value={stats.total_avg_diff} />
+                <h2>
+                  GJENNOMSNITTLIG <br />
+                  UNDERMELDT/OVERMELDT:
+                </h2>
+                <div style={{ marginTop: -100, paddingLeft: 94 }}>
+                  <GaugeWithNeedle value={stats.total_avg_diff} />
                 </div>
                 <h2>{stats.total_avg_diff}</h2>
+              </>
+            ) : emptyStatsSet ? (
+              <>
+                <br />
+                <Alert severity="info">
+                  Det finnes ingen spill med disse spillerne involvert
+                  samtidig.
+                </Alert>
               </>
             ) : (
               "Laster stats ..."
