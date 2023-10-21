@@ -68,8 +68,9 @@ export default function BondeBridge() {
   const [infoModalOpen, setInfoModalOpen] = React.useState<boolean>(false);
   const handleInfoClose = () => setInfoModalOpen(false);
 
-  const [newPlayerModalOpen, setNewPlayerModalOpen] =
-    React.useState<boolean>(false);
+  const [newPlayerModalOpen, setNewPlayerModalOpen] = React.useState<boolean>(
+    false
+  );
   const handleNewPlayerClose = () => setNewPlayerModalOpen(false);
 
   const [finalModalOpen, setFinalModalOpen] = React.useState<boolean>(false);
@@ -101,8 +102,9 @@ export default function BondeBridge() {
   const [dealerIndex, setDealerIndex] = useState<number>(0);
 
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
-  const [invalidTricksAlertOpen, setInvalidTricksAlertOpen] =
-    useState<boolean>(false);
+  const [invalidTricksAlertOpen, setInvalidTricksAlertOpen] = useState<boolean>(
+    false
+  );
 
   // const NUMBER_OF_ROUNDS = 3;
   const NUMBER_OF_ROUNDS = Math.floor(52 / players.length);
@@ -359,6 +361,9 @@ export default function BondeBridge() {
       ? Math.min(currentRoundIndex, sortedRounds.length / 2)
       : currentRoundIndex + 1;
     for (let j = 0; j < loopTo; j++) {
+      if (sortedRounds[j].player_scores[i].stand === null) {
+        break;
+      }
       if (sortedRounds[j].player_scores[i].stand) {
         playerScore +=
           10 + Math.pow(Number(sortedRounds[j].player_scores[i].num_tricks), 2);
@@ -588,31 +593,31 @@ export default function BondeBridge() {
       alpha = ((maxAlpha - minAlpha) * consecutiveStands) / 8 + minAlpha;
       const minGreen = 180;
       const maxGreen = 255;
-      return `rgba(50, ${
-        ((maxGreen - minGreen) * consecutiveStands) / 8 + minGreen
-      }, 50, ${alpha})`;
+      return `rgba(50, ${((maxGreen - minGreen) * consecutiveStands) / 8 +
+        minGreen}, 50, ${alpha})`;
     } else if (consecutiveStands <= 12) {
       alpha = ((maxAlpha - minAlpha) * (consecutiveStands - 8)) / 4 + minAlpha;
       const minGreen = 200;
       const maxGreen = 255;
-      return `rgba(30, 130, ${
-        ((maxGreen - minGreen) * (consecutiveStands - 8)) / 4 + minGreen
-      }, ${alpha})`;
+      return `rgba(30, 130, ${((maxGreen - minGreen) *
+        (consecutiveStands - 8)) /
+        4 +
+        minGreen}, ${alpha})`;
     } else if (consecutiveStands <= 16) {
       alpha = ((maxAlpha - minAlpha) * (consecutiveStands - 12)) / 4 + minAlpha;
       const minGreen = 200;
       const maxGreen = 255;
-      return `rgba(255, 90, ${
-        ((maxGreen - minGreen) * (consecutiveStands - 12)) / 4 + minGreen
-      }, ${alpha})`;
+      return `rgba(255, 90, ${((maxGreen - minGreen) *
+        (consecutiveStands - 12)) /
+        4 +
+        minGreen}, ${alpha})`;
     } else {
       // for 17 to 20
       alpha = ((maxAlpha - minAlpha) * (consecutiveStands - 16)) / 4 + minAlpha;
       const minGreen = 0;
       const maxGreen = 130;
-      return `rgba(${
-        ((maxGreen - minGreen) * (consecutiveStands - 16)) / 4 + minGreen
-      }, 255, 150, ${alpha})`;
+      return `rgba(${((maxGreen - minGreen) * (consecutiveStands - 16)) / 4 +
+        minGreen}, 255, 150, ${alpha})`;
     }
   }
 
@@ -802,7 +807,7 @@ export default function BondeBridge() {
                                         justifyContent: "center",
                                       }}
                                     >
-                                      <IconButton 
+                                      <IconButton
                                         onClick={() => {
                                           setResultOpen(true);
                                         }}

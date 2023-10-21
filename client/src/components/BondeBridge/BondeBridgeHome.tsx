@@ -101,7 +101,7 @@ export default function BondeBridgeHome() {
 
   const [users, setUsers] = useState<BondeUser[]>([]);
 
-  const [selectedUserIDs, setSelectedUserIDs] = useState<number[]>([13]);
+  const [selectedUserIDs, setSelectedUserIDs] = useState<number[]>([]);
 
   const [exclusiveSelect, setExclusiveSelect] = useState<boolean>(false);
 
@@ -278,7 +278,6 @@ export default function BondeBridgeHome() {
       }
       const data = await response.json();
 
-      console.log(data);
       setStats(data as Stats);
     } catch (err) {
       setEmptyStatsSet(false);
