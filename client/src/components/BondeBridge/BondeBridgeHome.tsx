@@ -42,9 +42,11 @@ import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import MuiAlert, { AlertProps } from "@mui/material/Alert";
 
 import { useNavigate, useParams } from "react-router-dom";
-import GaugeWithNeedle, {
+import {
+  GaugeWithNeedle,
   PositiveAndNegativeBarChart,
   SimplePieChart,
+  SuccessRates,
 } from "./StatsCharts";
 
 interface TabPanelProps {
@@ -652,13 +654,14 @@ export default function BondeBridgeHome() {
                   <GaugeWithNeedle value={stats.total_avg_diff} />
                 </div>
                 <h2>{stats.total_avg_diff}</h2>
+                <h2>Success rates</h2>
+                <SuccessRates successRateData={stats.success_rates} />
               </>
             ) : emptyStatsSet ? (
               <>
                 <br />
                 <Alert severity="info">
-                  Det finnes ingen spill med disse spillerne involvert
-                  samtidig.
+                  Det finnes ingen spill med disse spillerne involvert samtidig.
                 </Alert>
               </>
             ) : (

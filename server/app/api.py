@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import List, Optional
 from fastapi import HTTPException, Response
 from time import sleep
@@ -936,15 +937,28 @@ async def get_stats(
     # Fetching needed data from db
     try:
         print(playerIds)
-        base_query = """
+        base_query1 = """
         SELECT SUM(num_tricks), MAX(num_cards) as num_cards
         FROM player_scores
         NATURAL JOIN rounds LEFT JOIN games on rounds.game_id = games.game_id
         WHERE stand IS NOT NULL
 
         """
+        base_query2 = """
+        SELECT 
+            r.num_cards,
+            ps.num_tricks,
+            ROUND(100.0 * SUM(CASE WHEN ps.stand THEN 1 ELSE 0 END) / COUNT(*), 2) AS stand_percentage
+        FROM 
+            rounds r
+        JOIN 
+            player_scores ps ON r.round_id = ps.round_id
+        JOIN
+            games ON r.game_id = games.game_id
+        WHERE 
+            ps.num_tricks IS NOT NULL
+        """
         exclusive = exclusiveselect.lower() == "true"
-        print(exclusive)
         # If playerIds are provided, filter results
         if playerIds:
             ids_list = playerIds.split(",")
@@ -952,23 +966,30 @@ async def get_stats(
             # Convert the string IDs to integers
             ids_list = [int(id) for id in ids_list]
 
-            print(",".join([str(id) for id in ids_list]))
-
-            base_query += f" AND games.game_id IN (SELECT game_id \
+            player_condition = f" AND games.game_id IN (SELECT game_id \
                             FROM game_players \
                             WHERE player_id IN ({','.join([str(id) for id in ids_list])}) \
                             GROUP BY game_id"
-            print(base_query)
 
             if exclusive:
-                base_query += f" HAVING COUNT(DISTINCT player_id) = {len(ids_list)})"
+                player_condition += (
+                    f" HAVING COUNT(DISTINCT player_id) = {len(ids_list)})"
+                )
             else:
-                base_query += ")"
+                player_condition += ")"
 
-        base_query += " GROUP BY round_id ORDER BY num_cards DESC;"
+            base_query1 += player_condition
+            base_query2 += player_condition
 
-        result1 = fetchDBJsonNew(base_query)
-        if result1:
+        base_query1 += " GROUP BY round_id ORDER BY num_cards DESC;"
+        base_query2 += (
+            "  GROUP BY r.num_cards, ps.num_tricks ORDER BY r.num_cards, ps.num_tricks;"
+        )
+
+        result1 = fetchDBJsonNew(base_query1)
+        result2 = fetchDBJsonNew(base_query2)
+
+        if result1 and result2:
             num_underbid = 0
             num_overbid = 0
             total_diff = 0
@@ -1000,17 +1021,27 @@ async def get_stats(
                 avg_diff = round(diffs[num_cards] / counts[num_cards], 2)
                 chart_data.append({"name": str(num_cards), "value": avg_diff})
 
-            print(chart_data)
-
             perc_underbid = round(num_underbid / len(result1) * 100, 1)
-            print(diffs)
+
+            # Initialize an empty defaultdict
+            success_rate_data = defaultdict(dict)
+
+            # Populate the defaultdict with the query results
+            for row in result2:
+                num_cards = row["num_cards"]
+                num_tricks = row["num_tricks"]
+                stand_percentage = row["stand_percentage"]
+                success_rate_data[num_cards][num_tricks] = stand_percentage
+
+            # Convert the defaultdict to a regular dict
+            success_rate_data = dict(success_rate_data)
             return {
                 "perc_underbid": perc_underbid,
                 "total_avg_diff": total_avg_diff,
                 "avg_diffs": chart_data,
+                "success_rates": success_rate_data,
             }
         else:
-            print("empty set")
             return Response(status_code=204)
     except Exception as e:
         print(e)
