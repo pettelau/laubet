@@ -14,6 +14,7 @@ import {
   Select,
   SelectChangeEvent,
   Stack,
+  Switch,
   TextField,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
@@ -37,8 +38,9 @@ import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import Alert from "@mui/material/Alert";
 import { IconButton } from "@mui/material";
-import { InfoOutlined, Person } from "@mui/icons-material";
+import { InfoOutlined, Person, EditAttributes } from "@mui/icons-material";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import EditIcon from "@mui/icons-material/Edit";
 
 import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -68,9 +70,11 @@ export default function BondeBridge() {
   const [infoModalOpen, setInfoModalOpen] = React.useState<boolean>(false);
   const handleInfoClose = () => setInfoModalOpen(false);
 
-  const [newPlayerModalOpen, setNewPlayerModalOpen] = React.useState<boolean>(
-    false
-  );
+  const [editModalOpen, setEditModalOpen] = React.useState<boolean>(false);
+  const handleEditClose = () => setEditModalOpen(false);
+
+  const [newPlayerModalOpen, setNewPlayerModalOpen] =
+    React.useState<boolean>(false);
   const handleNewPlayerClose = () => setNewPlayerModalOpen(false);
 
   const [finalModalOpen, setFinalModalOpen] = React.useState<boolean>(false);
@@ -101,47 +105,50 @@ export default function BondeBridge() {
   const [currentRoundIndex, setCurrentRoundIndex] = useState<number>(0);
   const [dealerIndex, setDealerIndex] = useState<number>(0);
 
-  const [alertOpen, setAlertOpen] = useState<boolean>(false);
-  const [invalidTricksAlertOpen, setInvalidTricksAlertOpen] = useState<boolean>(
-    false
+  const [selectedRoundIndex, setSelectedRoundIndex] = useState<number | null>(
+    null
   );
+
+  const [alertOpen, setAlertOpen] = useState<boolean>(false);
+  const [invalidTricksAlertOpen, setInvalidTricksAlertOpen] =
+    useState<boolean>(false);
+
+  // Initialize trickInputs state
+  const [trickInputs, setTrickInputs] = useState<string[]>([]);
+
+  // Update trickInputs when selectedRoundIndex changes
+  useEffect(() => {
+    if (selectedRoundIndex !== null) {
+      setTrickInputs(
+        rounds[selectedRoundIndex].player_scores.map((ps) =>
+          ps.num_tricks !== null ? ps.num_tricks.toString() : ""
+        )
+      );
+    }
+  }, [selectedRoundIndex, rounds]);
+
+  // Handle input change
+  const handleInputChange = (value: string, playerIndex: number) => {
+    const newTrickInputs = [...trickInputs];
+    newTrickInputs[playerIndex] = value;
+    setTrickInputs(newTrickInputs);
+
+    // Call handleTrickChange with 0 if the input is empty, otherwise with the number
+    handleTrickChange(
+      value === "" ? 0 : Number(value),
+      selectedRoundIndex as number, // TypeScript cast since we check for null before
+      playerIndex
+    );
+  };
 
   // const NUMBER_OF_ROUNDS = 3;
   const NUMBER_OF_ROUNDS = Math.floor(52 / players.length);
 
   const [error, setError] = useState<null | string>(null);
 
-  const pie_data = {
-    labels: ["Underbid", "Overbid", "Correct"],
-    datasets: [
-      {
-        data: returnPieData(),
-        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56"],
-        hoverBackgroundColor: ["#FF6384", "#36A2EB", "#FFCE56"],
-      },
-    ],
+  const handleRoundSelectChange = (event: SelectChangeEvent<number | null>) => {
+    setSelectedRoundIndex(event.target.value as number);
   };
-
-  const options = {
-    maxWidth: 400,
-  };
-
-  function returnPieData() {
-    const data = [];
-    data.push((underbid / currentRoundIndex + 1) * 100);
-    data.push((overbid / currentRoundIndex + 1) * 100);
-    data.push((correctbid / currentRoundIndex + 1) * 100);
-    return data;
-  }
-
-  function returnMenuItems(tricks: number) {
-    const menuItems = [];
-    menuItems.push(<MenuItem value={undefined}>Ikke valgt</MenuItem>);
-    for (let i = 0; i <= tricks; i++) {
-      menuItems.push(<MenuItem value={i}>{i}</MenuItem>);
-    }
-    return menuItems;
-  }
 
   function handleTrickChange(
     newNumTricks: string | number | null,
@@ -175,20 +182,24 @@ export default function BondeBridge() {
     });
   }
 
-  function handleStandChange(newStandStatus: boolean, playerIndex: number) {
+  function handleStandChange(
+    newStandStatus: boolean,
+    roundIndex: number,
+    playerIndex: number
+  ) {
     setRounds((prevRounds) => {
       const newRounds = [...prevRounds];
       const updatedPlayerStatus = {
-        ...newRounds[currentRoundIndex].player_scores[playerIndex],
+        ...newRounds[roundIndex].player_scores[playerIndex],
         stand: newStandStatus,
       };
       const updatedPlayerStatuses = [
-        ...newRounds[currentRoundIndex].player_scores.slice(0, playerIndex),
+        ...newRounds[roundIndex].player_scores.slice(0, playerIndex),
         updatedPlayerStatus,
-        ...newRounds[currentRoundIndex].player_scores.slice(playerIndex + 1),
+        ...newRounds[roundIndex].player_scores.slice(playerIndex + 1),
       ];
-      newRounds[currentRoundIndex] = {
-        ...newRounds[currentRoundIndex],
+      newRounds[roundIndex] = {
+        ...newRounds[roundIndex],
         player_scores: updatedPlayerStatuses,
       };
       return newRounds;
@@ -238,7 +249,7 @@ export default function BondeBridge() {
   function handleNextRound() {
     for (let i = 0; i < players.length; i++) {
       if (rounds[currentRoundIndex].player_scores[i].stand === null) {
-        handleStandChange(false, i);
+        handleStandChange(false, currentRoundIndex, i);
       }
     }
     setReBidState(false);
@@ -593,31 +604,31 @@ export default function BondeBridge() {
       alpha = ((maxAlpha - minAlpha) * consecutiveStands) / 8 + minAlpha;
       const minGreen = 180;
       const maxGreen = 255;
-      return `rgba(50, ${((maxGreen - minGreen) * consecutiveStands) / 8 +
-        minGreen}, 50, ${alpha})`;
+      return `rgba(50, ${
+        ((maxGreen - minGreen) * consecutiveStands) / 8 + minGreen
+      }, 50, ${alpha})`;
     } else if (consecutiveStands <= 12) {
       alpha = ((maxAlpha - minAlpha) * (consecutiveStands - 8)) / 4 + minAlpha;
       const minGreen = 200;
       const maxGreen = 255;
-      return `rgba(30, 130, ${((maxGreen - minGreen) *
-        (consecutiveStands - 8)) /
-        4 +
-        minGreen}, ${alpha})`;
+      return `rgba(30, 130, ${
+        ((maxGreen - minGreen) * (consecutiveStands - 8)) / 4 + minGreen
+      }, ${alpha})`;
     } else if (consecutiveStands <= 16) {
       alpha = ((maxAlpha - minAlpha) * (consecutiveStands - 12)) / 4 + minAlpha;
       const minGreen = 200;
       const maxGreen = 255;
-      return `rgba(255, 90, ${((maxGreen - minGreen) *
-        (consecutiveStands - 12)) /
-        4 +
-        minGreen}, ${alpha})`;
+      return `rgba(255, 90, ${
+        ((maxGreen - minGreen) * (consecutiveStands - 12)) / 4 + minGreen
+      }, ${alpha})`;
     } else {
       // for 17 to 20
       alpha = ((maxAlpha - minAlpha) * (consecutiveStands - 16)) / 4 + minAlpha;
       const minGreen = 0;
       const maxGreen = 130;
-      return `rgba(${((maxGreen - minGreen) * (consecutiveStands - 16)) / 4 +
-        minGreen}, 255, 150, ${alpha})`;
+      return `rgba(${
+        ((maxGreen - minGreen) * (consecutiveStands - 16)) / 4 + minGreen
+      }, 255, 150, ${alpha})`;
     }
   }
 
@@ -698,8 +709,15 @@ export default function BondeBridge() {
                         <InfoOutlined />
                       </IconButton>
                     </TableCell>
-                    <TableCell>
-                      <b>D</b>
+                    <TableCell align="left">
+                      <IconButton
+                        onClick={() => {
+                          setEditModalOpen(true);
+                        }}
+                        aria-label="edit"
+                      >
+                        <EditIcon />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 </TableHead>
@@ -1035,7 +1053,11 @@ export default function BondeBridge() {
                             <Checkbox
                               checked={!!player.stand}
                               onChange={(event) => {
-                                handleStandChange(event.target.checked, index);
+                                handleStandChange(
+                                  event.target.checked,
+                                  currentRoundIndex,
+                                  index
+                                );
                               }}
                             />{" "}
                             <b>
@@ -1166,6 +1188,66 @@ export default function BondeBridge() {
               variant="contained"
               onClick={() => {
                 setInfoModalOpen(false);
+              }}
+            >
+              Lukk
+            </Button>
+          </div>
+        </Modal>
+
+        <Modal open={editModalOpen} onClose={handleEditClose}>
+          <div id="rules" style={{ paddingTop: 10 }}>
+            <h2>Endre score</h2>
+            Velg runden du vil endre: <br />
+            <Select
+              placeholder="Velg runde"
+              value={selectedRoundIndex}
+              onChange={handleRoundSelectChange}
+            >
+              {rounds.map((round, index) => {
+                if (
+                  round.player_scores.every((player) => player.stand !== null)
+                ) {
+                  return (
+                    <MenuItem key={round.round_id} value={index}>
+                      {round.num_cards}{" "}
+                      {index + 1 / rounds.length < 12 ? "uten " : "med "}trumf
+                    </MenuItem>
+                  );
+                }
+              })}
+            </Select>
+            <br />
+            <br />
+            {selectedRoundIndex !== null &&
+              rounds[selectedRoundIndex]?.player_scores.map(
+                (playerScore, index) => (
+                  <div key={playerScore.player_scores_id}>
+                    <TextField
+                      sx={{ marginBottom: 1 }}
+                      type="number"
+                      label={`${players[index].nickname}`}
+                      value={trickInputs[index] || ""}
+                      onChange={(e) => handleInputChange(e.target.value, index)}
+                    />
+                    <Switch
+                      checked={playerScore.stand ?? false}
+                      onChange={(e) =>
+                        handleStandChange(
+                          e.target.checked,
+                          selectedRoundIndex,
+                          index
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+            <br />
+            <Button
+              variant="contained"
+              onClick={() => {
+                setEditModalOpen(false);
               }}
             >
               Lukk

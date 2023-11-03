@@ -95,9 +95,11 @@ export default function BondeBridgeHome() {
     React.useState<boolean>(false);
   const handleNewGameClose = () => setNewGameModalOpen(false);
 
-  const [moneyMultiplier, setMoneyMultiplier] = useState<number>(2);
-  const [extraCostLoser, setExtraCostLoser] = useState<number>(100);
-  const [extraCostSecondLast, setExtraCostSecondLast] = useState<number>(50);
+  const [moneyMultiplier, setMoneyMultiplier] = useState<number | null>(2);
+  const [extraCostLoser, setExtraCostLoser] = useState<number | null>(100);
+  const [extraCostSecondLast, setExtraCostSecondLast] = useState<number | null>(
+    50
+  );
 
   const [stats, setStats] = useState<Stats>();
 
@@ -496,9 +498,13 @@ export default function BondeBridgeHome() {
                   size="small"
                   label="Differanse ganges med"
                   type="number"
-                  value={moneyMultiplier}
+                  value={moneyMultiplier === null ? "" : moneyMultiplier}
                   onChange={(e) => {
-                    setMoneyMultiplier(Number(e.target.value));
+                    if (e.target.value === "") {
+                      setMoneyMultiplier(null);
+                    } else {
+                      setMoneyMultiplier(Number(e.target.value));
+                    }
                   }}
                 />
                 <br />
@@ -512,9 +518,13 @@ export default function BondeBridgeHome() {
                   size="small"
                   label={`Sum ${players.length}. plass til 1. plass`}
                   type="number"
-                  value={extraCostLoser}
+                  value={extraCostLoser === null ? "" : extraCostLoser}
                   onChange={(e) => {
-                    setExtraCostLoser(Number(e.target.value));
+                    if (e.target.value === "") {
+                      setExtraCostLoser(null);
+                    } else {
+                      setExtraCostLoser(Number(e.target.value));
+                    }
                   }}
                 />
               </>
@@ -534,9 +544,15 @@ export default function BondeBridgeHome() {
                   size="small"
                   label={`Sum ${players.length - 1}. plass til 2. plass`}
                   type="number"
-                  value={extraCostSecondLast}
+                  value={
+                    extraCostSecondLast === null ? "" : extraCostSecondLast
+                  }
                   onChange={(e) => {
-                    setExtraCostSecondLast(Number(e.target.value));
+                    if (e.target.value === "") {
+                      setExtraCostSecondLast(null);
+                    } else {
+                      setExtraCostSecondLast(Number(e.target.value));
+                    }
                   }}
                 />
                 <br />
@@ -583,7 +599,12 @@ export default function BondeBridgeHome() {
             )}
             <br />
             <Button
-              disabled={players.length < 3}
+              disabled={
+                players.length < 3 ||
+                moneyMultiplier === null ||
+                extraCostLoser === null ||
+                extraCostSecondLast === null
+              }
               variant="contained"
               onClick={() => {
                 initGame();

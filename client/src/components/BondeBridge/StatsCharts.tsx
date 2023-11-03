@@ -360,7 +360,7 @@ export const SuccessRates: React.FC<{ successRateData: SuccessRateData }> = ({
 
   return (
     <>
-      <Table>
+      <Table sx={{ maxWidth: 500 }}>
         {Array.from({ length: numberOfRows + 1 }, (_, index) => (
           <TableRow>
             <TableCell sx={{ backgroundColor: "blanchedalmond" }}>
@@ -383,7 +383,14 @@ export const SuccessRates: React.FC<{ successRateData: SuccessRateData }> = ({
                     {rowIndex} <br />
                     {index} <br />
                     {numberOfRows - index} */}
-                    {successRateData[Number(rowKey)][numberOfRows - index]}
+                    {successRateData[Number(rowKey)][numberOfRows - index] !==
+                    undefined ? (
+                      successRateData[Number(rowKey)][
+                        numberOfRows - index
+                      ].toFixed(0)
+                    ) : (
+                      <div style={{ color: "black" }}>-</div>
+                    )}
                   </TableCell>
                 );
               } else {
