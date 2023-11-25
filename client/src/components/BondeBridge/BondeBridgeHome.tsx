@@ -678,8 +678,14 @@ export default function BondeBridgeHome() {
                 <h2>{stats.total_avg_diff}</h2>
                 <h2>Success rates</h2>
                 <SuccessRates successRateData={stats.success_rates} />
-                <h2>Pengerrrrr</h2>
-                <PlayerEarningsTable playerEarnings={stats.player_earnings} />
+                <h2>Inntjeninger/tap</h2>
+                {Object.keys(stats.player_earnings).length === 0 ? (
+                  <Alert severity="info">
+                    Det finnes ingen spill med nøyaktig de valgte spillerne.
+                  </Alert>
+                ) : (
+                  <PlayerEarningsTable playerEarnings={stats.player_earnings} />
+                )}
               </>
             ) : emptyStatsSet ? (
               <>
