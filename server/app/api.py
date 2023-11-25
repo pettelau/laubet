@@ -935,10 +935,15 @@ def calc_player_earnings(playerIds: Optional[str]):
     games = fetchDBJsonNew(game_ids_query)
 
     player_earnings = dict()  # Format {1: -40, 2: 54, 3: 187 ...}
+    player_nicknames = dict()  # To store player_id to nickname mapping
 
     for game in games:
         players_query = "select score, bonde_users.player_id, nickname from game_players left join bonde_users on game_players.player_id = bonde_users.player_id where game_id = %s"
         players = fetchDBJsonNew(players_query, (game["game_id"],))
+
+        # Update player_nicknames dictionary
+        for player in players:
+            player_nicknames[player["player_id"]] = player["nickname"]
 
         player_ids_list = playerIds.split(",") if playerIds else None
         game_player_ids = [str(player["player_id"]) for player in players]
@@ -983,12 +988,13 @@ def calc_player_earnings(playerIds: Optional[str]):
                     player_earnings[player_id] = earnings
         else:
             continue
+    print(player_earnings)
 
     # Swap player_id with nickname
     final_earnings = {
-        player["nickname"]: player_earnings[player["player_id"]]
-        for player in players
-        if player["player_id"] in player_earnings
+        player_nicknames[player_id]: earnings
+        for player_id, earnings in player_earnings.items()
+        if player_id in player_nicknames
     }
 
     return final_earnings

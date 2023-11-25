@@ -255,6 +255,8 @@ export const PlayerEarningsTable: React.FC<{
 }> = ({ playerEarnings }) => {
   const earningsArray = Object.entries(playerEarnings);
 
+  earningsArray.sort((a, b) => b[1] - a[1]);
+
   return (
     <>
       <Table>
@@ -275,7 +277,7 @@ export const PlayerEarningsTable: React.FC<{
           {earningsArray.map(([nickname, earnings], index: number) => (
             <TableRow key={nickname}>
               <TableCell component="th" scope="row">
-                {index +1}.
+                {index + 1}.
               </TableCell>
               <TableCell component="th" scope="row">
                 {nickname}
