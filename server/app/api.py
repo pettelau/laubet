@@ -958,15 +958,66 @@ def calc_player_earnings(playerIds: Optional[str]):
             first_place, last_place = players[0], players[-1]
             second_place, second_last_place = players[1], players[-2]
 
-            first_place_earnings = (first_place["score"] - last_place["score"]) * game[
-                "money_multiplier"
-            ] + game["extra_cost_loser"]
-            last_place_earnings = -first_place_earnings
+            # Initialize earnings and losses
+            first_place_earnings = second_place_earnings = 0
+            last_place_earnings = second_last_earnings = 0
 
-            second_place_earnings = (
-                second_place["score"] - second_last_place["score"]
-            ) * game["money_multiplier"] + game["extra_cost_second_last"]
-            second_last_earnings = -second_place_earnings
+            # Check for ties between first and second, and last and second last
+            if first_place["score"] == second_place["score"]:
+                # If first and second place tie, split combined earnings
+                total_earnings = (
+                    (first_place["score"] - last_place["score"])
+                    * game["money_multiplier"]
+                    + game["extra_cost_loser"]
+                ) + (
+                    (second_place["score"] - second_last_place["score"])
+                    * game["money_multiplier"]
+                    + game["extra_cost_second_last"]
+                )
+                first_place_earnings = second_place_earnings = total_earnings / 2
+            else:
+                # Calculate earnings for first and second places normally
+                first_place_earnings = (
+                    first_place["score"] - last_place["score"]
+                ) * game["money_multiplier"] + game["extra_cost_loser"]
+                second_place_earnings = (
+                    second_place["score"] - second_last_place["score"]
+                ) * game["money_multiplier"] + game["extra_cost_second_last"]
+
+            if last_place["score"] == second_last_place["score"]:
+                # If last and second last tie, split the total losses
+                total_loss = -(first_place_earnings + second_place_earnings)
+                last_place_earnings = second_last_earnings = total_loss / 2
+            else:
+                last_place_earnings = -first_place_earnings
+                second_last_earnings = -second_place_earnings
+
+            # Special edge cases
+            if (
+                first_place["score"]
+                == second_place["score"]
+                == second_last_place["score"]
+                == last_place["score"]
+            ):
+                first_place_earnings = (
+                    second_place_earnings
+                ) = second_last_earnings = last_place_earnings = 0
+            elif (
+                first_place["score"]
+                == second_place["score"]
+                == second_last_place["score"]
+            ):
+                first_place_earnings = second_place_earnings = second_last_earnings = (
+                    last_place_earnings / 3
+                )
+            elif (
+                second_place["score"]
+                == second_last_place["score"]
+                == last_place["score"]
+            ):
+                second_place_earnings = second_last_earnings = last_place_earnings = 0
+            if second_last_place["score"] == second_place["score"]:
+                second_last_earnings = second_place_earnings = 0
 
             # Update player_earnings
             for player in players:
