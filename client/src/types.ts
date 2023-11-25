@@ -215,6 +215,7 @@ export type Stats = {
   perc_underbid: number;
   total_avg_diff: number;
   success_rates: SuccessRateData;
+  player_earnings: PlayerEarnings;
 };
 
 export type AvgDiffs = {
@@ -223,6 +224,10 @@ export type AvgDiffs = {
 };
 
 export type SuccessRateData = Record<string, Record<string, number>>;
+
+export type PlayerEarnings = {
+  [nickname: string]: number;
+};
 
 export type PieData = {
   name: string;

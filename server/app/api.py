@@ -930,13 +930,76 @@ async def get_users():
     return {"games": games}
 
 
+def calc_player_earnings(playerIds: Optional[str]):
+    game_ids_query = "select game_id, money_multiplier, extra_cost_loser, extra_cost_second_last from games where status = 'finished'"
+    games = fetchDBJsonNew(game_ids_query)
+
+    player_earnings = dict()  # Format {1: -40, 2: 54, 3: 187 ...}
+
+    for game in games:
+        players_query = "select score, bonde_users.player_id, nickname from game_players left join bonde_users on game_players.player_id = bonde_users.player_id where game_id = %s"
+        players = fetchDBJsonNew(players_query, (game["game_id"],))
+
+        player_ids_list = playerIds.split(",") if playerIds else None
+        game_player_ids = [str(player["player_id"]) for player in players]
+
+        if player_ids_list is None or set(player_ids_list) == set(game_player_ids):
+            # Sort players by scores
+            players.sort(key=lambda x: x["score"], reverse=True)
+
+            if len(players) < 4:
+                continue
+            # Calculate earnings/losses
+            first_place, last_place = players[0], players[-1]
+            second_place, second_last_place = players[1], players[-2]
+
+            first_place_earnings = (first_place["score"] - last_place["score"]) * game[
+                "money_multiplier"
+            ] + game["extra_cost_loser"]
+            last_place_earnings = -first_place_earnings
+
+            second_place_earnings = (
+                second_place["score"] - second_last_place["score"]
+            ) * game["money_multiplier"] + game["extra_cost_second_last"]
+            second_last_earnings = -second_place_earnings
+
+            # Update player_earnings
+            for player in players:
+                player_id = player["player_id"]
+                if player_id == first_place["player_id"]:
+                    earnings = first_place_earnings
+                elif player_id == last_place["player_id"]:
+                    earnings = last_place_earnings
+                elif player_id == second_place["player_id"]:
+                    earnings = second_place_earnings
+                elif player_id == second_last_place["player_id"]:
+                    earnings = second_last_earnings
+                else:
+                    earnings = 0  # For players not in first, second, last, or second last place
+
+                if player_id in player_earnings:
+                    player_earnings[player_id] += earnings
+                else:
+                    player_earnings[player_id] = earnings
+        else:
+            continue
+
+    # Swap player_id with nickname
+    final_earnings = {
+        player["nickname"]: player_earnings[player["player_id"]]
+        for player in players
+        if player["player_id"] in player_earnings
+    }
+
+    return final_earnings
+
+
 @app.get("/api/bonde/stats")
 async def get_stats(
     playerIds: Optional[str] = None, exclusiveselect: Optional[str] = "False"
 ):
     # Fetching needed data from db
     try:
-        print(playerIds)
         base_query1 = """
         SELECT SUM(num_tricks), MAX(num_cards) as num_cards
         FROM player_scores
@@ -989,6 +1052,8 @@ async def get_stats(
         result1 = fetchDBJsonNew(base_query1)
         result2 = fetchDBJsonNew(base_query2)
 
+        player_earnings = calc_player_earnings(playerIds)
+
         if result1 and result2:
             num_underbid = 0
             num_overbid = 0
@@ -1040,6 +1105,7 @@ async def get_stats(
                 "total_avg_diff": total_avg_diff,
                 "avg_diffs": chart_data,
                 "success_rates": success_rate_data,
+                "player_earnings": player_earnings,
             }
         else:
             return Response(status_code=204)

@@ -4,6 +4,7 @@ import {
   SimplePieChartProps,
   PositiveAndNegativeBarChartProps,
   SuccessRateData,
+  PlayerEarnings,
 } from "../../types";
 
 import {
@@ -22,6 +23,7 @@ import {
 } from "recharts";
 import {
   Table,
+  TableBody,
   TableCell,
   TableFooter,
   TableHead,
@@ -174,172 +176,6 @@ export const GaugeWithNeedle: React.FC<{ value: number }> = ({ value }) => {
 export const SuccessRates: React.FC<{ successRateData: SuccessRateData }> = ({
   successRateData,
 }) => {
-  // const successRateData: SuccessRateData = {
-  //   2: { 0: 55, 1: 63, 2: 44 },
-  //   3: { 0: 44, 1: 68, 2: 32, 3: 33 },
-  //   4: { 0: 58, 1: 77, 2: 44, 3: 30, 4: 38 },
-  //   5: { 0: 60, 1: 70, 2: 50, 3: 40, 4: 30, 5: 20 },
-  //   6: { 0: 65, 1: 75, 2: 55, 3: 45, 4: 35, 5: 25, 6: 15 },
-  //   7: {
-  //     0: 66,
-  //     1: 76,
-  //     2: 56,
-  //     3: 46,
-  //     4: 36,
-  //     5: 26,
-  //     6: 16,
-  //     7: 10,
-  //   },
-  //   8: {
-  //     0: 67,
-  //     1: 77,
-  //     2: 57,
-  //     3: 47,
-  //     4: 37,
-  //     5: 27,
-  //     6: 17,
-  //     7: 11,
-  //     8: 9,
-  //   },
-  //   9: {
-  //     0: 68,
-  //     1: 78,
-  //     2: 58,
-  //     3: 48,
-  //     4: 38,
-  //     5: 28,
-  //     6: 18,
-  //     7: 12,
-  //     8: 10,
-  //     9: 8,
-  //   },
-  //   10: {
-  //     0: 69,
-  //     1: 79,
-  //     2: 59,
-  //     3: 49,
-  //     4: 39,
-  //     5: 29,
-  //     6: 19,
-  //     7: 13,
-  //     8: 11,
-  //     9: 9,
-  //     10: 7,
-  //   },
-  //   11: {
-  //     0: 70,
-  //     1: 80,
-  //     2: 60,
-  //     3: 50,
-  //     4: 40,
-  //     5: 30,
-  //     6: 20,
-  //     7: 14,
-  //     8: 12,
-  //     9: 10,
-  //     10: 8,
-  //     11: 6,
-  //   },
-  //   12: {
-  //     0: 71,
-  //     1: 81,
-  //     2: 61,
-  //     3: 51,
-  //     4: 41,
-  //     5: 31,
-  //     6: 21,
-  //     7: 15,
-  //     8: 13,
-  //     9: 11,
-  //     10: 9,
-  //     11: 7,
-  //     12: 5,
-  //   },
-  //   13: {
-  //     0: 72,
-  //     1: 82,
-  //     2: 62,
-  //     3: 52,
-  //     4: 42,
-  //     5: 32,
-  //     6: 22,
-  //     7: 16,
-  //     8: 14,
-  //     9: 12,
-  //     10: 10,
-  //     11: 8,
-  //     12: 6,
-  //     13: 4,
-  //   },
-  // };
-
-  // const successRateData: SuccessRateData = {
-  //   "2": {
-  //     "0": 75.0,
-  //     "1": 0.0,
-  //     "2": 100.0,
-  //   },
-  //   "3": {
-  //     "0": 80.0,
-  //     "1": 50.0,
-  //     "2": 100.0,
-  //   },
-  //   "4": {
-  //     "0": 75.0,
-  //     "1": 50.0,
-  //     "2": 100.0,
-  //     "4": 100.0,
-  //   },
-  //   "5": {
-  //     "0": 75.0,
-  //     "1": 100.0,
-  //     "2": 0.0,
-  //     "4": 100.0,
-  //   },
-  //   "6": {
-  //     "0": 66.67,
-  //     "2": 100.0,
-  //     "3": 50.0,
-  //     "4": 50.0,
-  //   },
-  //   "7": {
-  //     "0": 100.0,
-  //     "3": 100.0,
-  //     "4": 50.0,
-  //   },
-  //   "8": {
-  //     "0": 100.0,
-  //     "1": 100.0,
-  //     "4": 100.0,
-  //     "5": 0.0,
-  //   },
-  //   "9": {
-  //     "0": 0.0,
-  //     "1": 100.0,
-  //     "5": 100.0,
-  //   },
-  //   "10": {
-  //     "1": 100.0,
-  //     "3": 50.0,
-  //     "4": 100.0,
-  //   },
-  //   "11": {
-  //     "2": 100.0,
-  //     "4": 100.0,
-  //     "7": 0.0,
-  //   },
-  //   "12": {
-  //     "0": 50.0,
-  //     "3": 100.0,
-  //     "5": 0.0,
-  //   },
-  //   "13": {
-  //     "0": 40.0,
-  //     "2": 100.0,
-  //     "4": 50.0,
-  //   },
-  // };
-
   const numberOfDIfferentTricks = Object.keys(successRateData).length;
   const numberOfRows = numberOfDIfferentTricks + 1;
 
@@ -409,6 +245,45 @@ export const SuccessRates: React.FC<{ successRateData: SuccessRateData }> = ({
             );
           })}
         </TableRow>
+      </Table>
+    </>
+  );
+};
+
+export const PlayerEarningsTable: React.FC<{
+  playerEarnings: PlayerEarnings;
+}> = ({ playerEarnings }) => {
+  const earningsArray = Object.entries(playerEarnings);
+
+  return (
+    <>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell width={10}>
+              <b>#</b>
+            </TableCell>
+            <TableCell>
+              <b>Spiller</b>
+            </TableCell>
+            <TableCell align="right">
+              <b>Balanse</b>
+            </TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {earningsArray.map(([nickname, earnings], index: number) => (
+            <TableRow key={nickname}>
+              <TableCell component="th" scope="row">
+                {index +1}.
+              </TableCell>
+              <TableCell component="th" scope="row">
+                {nickname}
+              </TableCell>
+              <TableCell align="right">{earnings} kr</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
       </Table>
     </>
   );

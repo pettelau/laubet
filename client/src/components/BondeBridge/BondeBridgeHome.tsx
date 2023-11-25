@@ -44,6 +44,7 @@ import MuiAlert, { AlertProps } from "@mui/material/Alert";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   GaugeWithNeedle,
+  PlayerEarningsTable,
   PositiveAndNegativeBarChart,
   SimplePieChart,
   SuccessRates,
@@ -677,6 +678,8 @@ export default function BondeBridgeHome() {
                 <h2>{stats.total_avg_diff}</h2>
                 <h2>Success rates</h2>
                 <SuccessRates successRateData={stats.success_rates} />
+                <h2>Pengerrrrr</h2>
+                <PlayerEarningsTable playerEarnings={stats.player_earnings} />
               </>
             ) : emptyStatsSet ? (
               <>
