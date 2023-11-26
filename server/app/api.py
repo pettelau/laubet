@@ -1111,6 +1111,11 @@ async def get_stats(
 
         player_earnings = calc_player_earnings(playerIds)
 
+        bleedings_query = "select nickname, SUM(bleedings) as total_bleedings, SUM(warnings) as total_warnings from game_players left join bonde_users on game_players.player_id = bonde_users.player_id group by bonde_users.nickname order by total_bleedings DESC"
+
+        bleedings = fetchDBJsonNew(bleedings_query)
+        print(bleedings)
+
         if result1 and result2:
             num_underbid = 0
             num_overbid = 0
@@ -1163,6 +1168,7 @@ async def get_stats(
                 "avg_diffs": chart_data,
                 "success_rates": success_rate_data,
                 "player_earnings": player_earnings,
+                "bleedings": bleedings,
             }
         else:
             return Response(status_code=204)
@@ -1187,7 +1193,7 @@ async def get_game(game_id: int):
             round["player_scores"] = round_scores
 
         players_query = """
-                SELECT nickname, game_player_id, game_players.player_id 
+                SELECT nickname, bleedings, warnings, game_player_id, game_players.player_id 
                 FROM games 
                 NATURAL JOIN game_players 
                 LEFT JOIN bonde_users ON game_players.player_id = bonde_users.player_id 
@@ -1325,9 +1331,11 @@ async def update_player_scores(data: dict):
         for player in data["playerData"]:
             try:
                 cursor.execute(
-                    "UPDATE game_players SET score = %s WHERE game_player_id = %s",
+                    "UPDATE game_players SET score = %s, warnings = %s, bleedings = %s WHERE game_player_id = %s",
                     (
                         player["score"],
+                        player["warnings"],
+                        player["bleedings"],
                         player["game_player_id"],
                     ),
                 )

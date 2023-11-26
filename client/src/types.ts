@@ -168,6 +168,8 @@ export type Player = {
   game_player_id: number;
   nickname: string;
   score: number;
+  bleedings: number;
+  warnings: number;
 };
 
 export type PlayerPreGame = {
@@ -216,6 +218,7 @@ export type Stats = {
   total_avg_diff: number;
   success_rates: SuccessRateData;
   player_earnings: PlayerEarnings;
+  bleedings: BleedingsStats[];
 };
 
 export type AvgDiffs = {
@@ -227,6 +230,12 @@ export type SuccessRateData = Record<string, Record<string, number>>;
 
 export type PlayerEarnings = {
   [nickname: string]: number;
+};
+
+export type BleedingsStats = {
+  nickname: string;
+  total_bleedings: number;
+  total_warnings: number;
 };
 
 export type PieData = {

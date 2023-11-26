@@ -5,6 +5,7 @@ import {
   PositiveAndNegativeBarChartProps,
   SuccessRateData,
   PlayerEarnings,
+  BleedingsStats,
 } from "../../types";
 
 import {
@@ -283,6 +284,80 @@ export const PlayerEarningsTable: React.FC<{
                 {nickname}
               </TableCell>
               <TableCell align="right">{earnings} kr</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </>
+  );
+};
+
+export const BleedingsTable: React.FC<{
+  bleedingsData: BleedingsStats[];
+}> = ({ bleedingsData }) => {
+  return (
+    <>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell width={10}>
+              <b>#</b>
+            </TableCell>
+            <TableCell>
+              <b>Spiller</b>
+            </TableCell>
+            <TableCell sx={{ padding: 0.5 }} align="center">
+              <b>
+                Blødninger{" "}
+                <span
+                  style={{
+                    border: "1px solid red",
+                    display: "inline-block",
+                    backgroundColor: "#ffcccc",
+                    color: "white",
+                    borderRadius: "5px", // Adjust for more or less rounded corners
+                    padding: "0px 2px", // Adjust padding to your preference
+                    margin: "2px", // Adjust for spacing between boxes
+                    fontWeight: "bold",
+                    fontSize: "10px", // Adjust font size as needed
+                  }}
+                >
+                  🩸
+                </span>
+              </b>
+            </TableCell>
+            <TableCell align="center" sx={{ padding: 0.5 }}>
+              <b>
+                Warnings
+                <span
+                  style={{
+                    display: "inline-block",
+                    backgroundColor: "orange",
+                    color: "white",
+                    borderRadius: "5px", // Adjust for more or less rounded corners
+                    padding: "0px 2px", // Adjust padding to your preference
+                    margin: "2px", // Adjust for spacing between boxes
+                    fontWeight: "bold",
+                    fontSize: "10px", // Adjust font size as needed
+                  }}
+                >
+                  W
+                </span>
+              </b>
+            </TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {bleedingsData.map((bleedings, index: number) => (
+            <TableRow key={bleedings.nickname}>
+              <TableCell component="th" scope="row">
+                {index + 1}.
+              </TableCell>
+              <TableCell component="th" scope="row">
+                {bleedings.nickname}
+              </TableCell>
+              <TableCell align="center">{bleedings.total_bleedings}</TableCell>
+              <TableCell align="center">{bleedings.total_warnings}</TableCell>
             </TableRow>
           ))}
         </TableBody>

@@ -82,17 +82,7 @@ export default function BondeBridge() {
 
   const [currentGame, setCurrentGame] = useState<Game>();
 
-  const [moneyMultiplier, setMoneyMultiplier] = useState<number>(2);
-  const [extraCostLoser, setExtraCostLoser] = useState<number>(100);
-  const [extraCostSecondLast, setExtraCostSecondLast] = useState<number>(50);
-
-  const [underbid, setUnderbid] = useState<number>(0);
-  const [overbid, setOverbid] = useState<number>(0);
-  const [correctbid, setCorrectbid] = useState<number>(0);
-
   const [reBitState, setReBidState] = useState<boolean>(false);
-
-  const [users, setUsers] = useState<BondeUser[]>([]);
 
   const [players, setPlayers] = useState<Player[]>([]);
 
@@ -138,6 +128,36 @@ export default function BondeBridge() {
       value === "" ? 0 : Number(value),
       selectedRoundIndex as number, // TypeScript cast since we check for null before
       playerIndex
+    );
+  };
+
+  const updateWarningsForPlayer = (playerId: number, increment: boolean) => {
+    setPlayers((prevPlayers) =>
+      prevPlayers.map((player) =>
+        player.player_id === playerId
+          ? {
+              ...player,
+              warnings: increment
+                ? player.warnings + 1
+                : Math.max(player.warnings - 1, 0),
+            }
+          : player
+      )
+    );
+  };
+
+  const updateBleedingsForPlayer = (playerId: number, increment: boolean) => {
+    setPlayers((prevPlayers) =>
+      prevPlayers.map((player) =>
+        player.player_id === playerId
+          ? {
+              ...player,
+              bleedings: increment
+                ? player.bleedings + 1
+                : Math.max(player.bleedings - 1, 0),
+            }
+          : player
+      )
     );
   };
 
@@ -223,7 +243,6 @@ export default function BondeBridge() {
       if (score.num_tricks) totalTrickSum += score.num_tricks;
     });
     if (totalTrickSum === modRound.num_cards) {
-      setCorrectbid((prev) => prev + 1);
       setReBidState(true);
       alert("Dealer må gå opp eller ned");
       return;
@@ -234,11 +253,6 @@ export default function BondeBridge() {
         newRounds[currentRoundIndex] = modRound; // Update the round at the current index
         return newRounds;
       });
-      if (totalTrickSum < modRound.num_cards) {
-        setUnderbid((prev) => prev + 1);
-      } else if (totalTrickSum > modRound.num_cards) {
-        setOverbid((prev) => prev + 1);
-      }
     }
 
     // } else {
@@ -355,7 +369,13 @@ export default function BondeBridge() {
         const newPlayers = [...prev];
         newPlayers.sort((a, b) => a.game_player_id - b.game_player_id)[
           i
-        ].score = playerScore;
+        ].score =
+          playerScore -
+          Math.floor(
+            newPlayers.sort((a, b) => a.game_player_id - b.game_player_id)[i]
+              .warnings / 2
+          ) *
+            10;
         return newPlayers;
       });
     }
@@ -401,6 +421,13 @@ export default function BondeBridge() {
         playerScore += 30;
       }
     }
+    playerScore =
+      playerScore -
+      Math.floor(
+        players.sort((a, b) => a.game_player_id - b.game_player_id)[i]
+          .warnings / 2
+      ) *
+        10;
     return playerScore;
   }
 
@@ -506,6 +533,7 @@ export default function BondeBridge() {
   useEffect(() => {
     if (currentGame) {
       calcMoneyPrizes();
+      updatePlayerScores();
     }
   }, [players]);
   // useEffect(() => {
@@ -546,6 +574,8 @@ export default function BondeBridge() {
   }
 
   async function updatePlayerScores() {
+    console.log("here");
+    console.log(players);
     if (players.length > 0) {
       try {
         const response = await fetch(`${url_path}api/bonde/playerdata`, {
@@ -645,17 +675,6 @@ export default function BondeBridge() {
     return consecutiveStands;
   };
 
-  // Calculate node positions, elements, etc based on your game data
-  const playersNodes = players.map((player, index) => ({
-    id: player.player_id.toString(),
-    type: "input", // You can use different node types or custom types for styling
-    data: { label: `${player.nickname} - ${player.score} poeng` },
-    position: {
-      x: 150 * Math.cos((2 * Math.PI * index) / players.length),
-      y: 150 * Math.sin((2 * Math.PI * index) / players.length),
-    },
-  }));
-
   return (
     <>
       <div id="rules">
@@ -677,6 +696,66 @@ export default function BondeBridge() {
               <Table sx={{}} aria-label="simple table">
                 <TableHead>
                   <TableRow>
+                    <TableCell></TableCell>
+                    {players
+                      .sort((a, b) => a.game_player_id - b.game_player_id)
+                      .map((player: Player) => {
+                        return (
+                          <>
+                            <TableCell align="center" sx={{ padding: 0.5 }}>
+                              <span
+                                onClick={() =>
+                                  updateWarningsForPlayer(
+                                    player.player_id,
+                                    true
+                                  )
+                                }
+                                style={{
+                                  cursor: "pointer",
+                                  border: "1px solid #F96B03",
+                                  display: "inline-block",
+                                  backgroundColor: "orange",
+                                  color: "white",
+                                  borderRadius: "5px",
+                                  padding: "2px 4px",
+                                  margin: "2px",
+                                  fontWeight: "bold",
+                                  fontSize: "12px",
+                                  marginRight: "10px",
+                                }}
+                              >
+                                W +
+                              </span>
+                              <span
+                                onClick={() =>
+                                  updateBleedingsForPlayer(
+                                    player.player_id,
+                                    true
+                                  )
+                                }
+                                style={{
+                                  cursor: "pointer",
+                                  border: "1px solid red",
+                                  display: "inline-block",
+                                  backgroundColor: "#ffcccc",
+                                  color: "red",
+                                  borderRadius: "5px",
+                                  padding: "2px 4px",
+                                  margin: "2px",
+                                  fontWeight: "bold",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                🩸 +
+                              </span>
+                            </TableCell>
+                          </>
+                        );
+                      })}
+                      <TableCell></TableCell>
+                      <TableCell></TableCell>
+                  </TableRow>
+                  <TableRow>
                     <>
                       <TableCell>
                         <b>#</b>
@@ -686,8 +765,65 @@ export default function BondeBridge() {
                         .map((player: Player) => {
                           return (
                             <>
-                              <TableCell align="center">
+                              <TableCell align="center" sx={{ padding: 0.5 }}>
                                 <b>{player.nickname}</b>
+                                {player.bleedings > 0 || player.warnings > 0 ? (
+                                  <>
+                                    {Array.from({
+                                      length: player.warnings,
+                                    }).map((_, index) => (
+                                      <span
+                                        onClick={() =>
+                                          updateWarningsForPlayer(
+                                            player.player_id,
+                                            false
+                                          )
+                                        }
+                                        key={index}
+                                        style={{
+                                          display: "inline-block",
+                                          backgroundColor: "orange",
+                                          color: "white",
+                                          borderRadius: "5px", // Adjust for more or less rounded corners
+                                          padding: "0px 2px", // Adjust padding to your preference
+                                          margin: "2px", // Adjust for spacing between boxes
+                                          fontWeight: "bold",
+                                          fontSize: "10px", // Adjust font size as needed
+                                        }}
+                                      >
+                                        W
+                                      </span>
+                                    ))}
+                                    {Array.from({
+                                      length: player.bleedings,
+                                    }).map((_, index) => (
+                                      <span
+                                        onClick={() =>
+                                          updateBleedingsForPlayer(
+                                            player.player_id,
+                                            false
+                                          )
+                                        }
+                                        key={index}
+                                        style={{
+                                          border: "1px solid red",
+                                          display: "inline-block",
+                                          backgroundColor: "#ffcccc",
+                                          color: "white",
+                                          borderRadius: "5px", // Adjust for more or less rounded corners
+                                          padding: "0px 2px", // Adjust padding to your preference
+                                          margin: "2px", // Adjust for spacing between boxes
+                                          fontWeight: "bold",
+                                          fontSize: "10px", // Adjust font size as needed
+                                        }}
+                                      >
+                                        🩸
+                                      </span>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <></>
+                                )}
                               </TableCell>
                             </>
                           );
@@ -709,8 +845,9 @@ export default function BondeBridge() {
                         <InfoOutlined />
                       </IconButton>
                     </TableCell>
-                    <TableCell align="left">
+                    <TableCell align="left" sx={{ padding: 0.5 }}>
                       <IconButton
+                        size="small"
                         onClick={() => {
                           setEditModalOpen(true);
                         }}

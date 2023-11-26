@@ -43,6 +43,7 @@ import MuiAlert, { AlertProps } from "@mui/material/Alert";
 
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  BleedingsTable,
   GaugeWithNeedle,
   PlayerEarningsTable,
   PositiveAndNegativeBarChart,
@@ -686,6 +687,8 @@ export default function BondeBridgeHome() {
                 ) : (
                   <PlayerEarningsTable playerEarnings={stats.player_earnings} />
                 )}
+                <h2>Blødninger</h2>
+                <BleedingsTable bleedingsData={stats.bleedings} />
               </>
             ) : emptyStatsSet ? (
               <>
