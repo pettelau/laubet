@@ -140,6 +140,20 @@ h3 {
   max-width: 900px;
 }
 
+#result-modal {
+  margin: auto;
+  text-align: center;
+  background-color: white;
+  margin-top: 20px;
+  padding-bottom: 20px;
+  border-radius: 10px;
+  max-width: 600px;
+}
+
+#result-modal h1 {
+  padding-top: 10px
+}
+
 #button-bonde {
   font-size: 20px;
   padding: 10px 8px;

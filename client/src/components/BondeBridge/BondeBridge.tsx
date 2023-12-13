@@ -44,6 +44,7 @@ import EditIcon from "@mui/icons-material/Edit";
 
 import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import PlayerCard from "./PlayerCard";
 
 const style = {
   position: "absolute" as "absolute",
@@ -276,7 +277,7 @@ export default function BondeBridge() {
         setShowGif(false);
       }, 5000);
     }
-    if (currentRoundIndex + 1 < NUMBER_OF_ROUNDS * 2 - 2) {
+    if (currentRoundIndex + 1 < rounds.length) {
       setCurrentRoundIndex((prev) => prev + 1);
     } else {
       if (currentGame) {
@@ -495,6 +496,20 @@ export default function BondeBridge() {
     fetchGame();
   }, []);
 
+  function getPlayerEarnings(place: number) {
+    if (place === 0) {
+      return prizes?.winnerPrize;
+    } else if (place === 1) {
+      return prizes?.secondPrize;
+    } else if (place === players.length - 2) {
+      return prizes?.secondPrize ? -prizes.secondPrize : undefined;
+    } else if (place === players.length - 1) {
+      return prizes?.winnerPrize ? -prizes.winnerPrize : undefined;
+    } else {
+      return undefined;
+    }
+  }
+
   useEffect(() => {
     calcScores();
     if (rounds[currentRoundIndex] !== undefined) {
@@ -692,8 +707,14 @@ export default function BondeBridge() {
               </div>
             )}
             <br />
-            <div style={{ height: "90vh", overflow: "scroll" }}>
-              <Table sx={{}} aria-label="simple table">
+            <div
+              style={{
+                height: "90vh",
+                overflow: "scroll",
+                marginBottom: "25px",
+              }}
+            >
+              <Table aria-label="simple table">
                 <TableHead>
                   <TableRow>
                     <TableCell></TableCell>
@@ -1262,73 +1283,35 @@ export default function BondeBridge() {
           </Box>
         </Modal>
         <Modal open={infoModalOpen} onClose={handleInfoClose}>
-          <div id="rules">
+          <div id="result-modal">
             <br />
-            Differanse ganges med <b>{currentGame?.money_multiplier}</b>
-            <br />
-            <br />
-            Sum fra {players.length} plass til 1. plass:{" "}
-            <b>{currentGame?.extra_cost_loser} kr</b>
-            <br />
-            <br />
-            {currentGame?.extra_cost_second_last ? (
-              <>
-                Sum fra {players.length - 1} til 2. plass:{" "}
-                <b>{currentGame.extra_cost_second_last} kr</b>
-              </>
-            ) : (
-              ""
-            )}
-            <br />
-            <br />
-            Spillet ble opprettet:{" "}
-            <b>
-              {currentGame?.created_on
-                ? new Date(currentGame.created_on).toDateString() +
-                  " " +
-                  new Date(currentGame.created_on).getHours() +
-                  ":" +
-                  new Date(currentGame.created_on).getMinutes()
-                : ""}
-            </b>
-            <br />
-            <br />
-            <b>SPILLERE:</b> <br />
-            {players.map((player: Player, index: number) => {
-              return (
-                <>
-                  {player.nickname}
-                  {index + 1 < players.length ? ", " : ""}
-                </>
-              );
-            })}
-            <br />
-            <br />
-            <br />
-            <br />
-            <b>PREMIER FOR ØYEBLIKKET:</b>
-            <br />
-            Vinner: <b>{prizes?.winner}</b>
-            <br />
-            Taper: <b>{prizes?.loser}</b>
-            <br />
-            Taper til vinner: <b>{prizes?.winnerPrize} kr</b>
-            <br />
-            {prizes?.second ? (
-              <>
-                2. plass: <b>{prizes.second}</b>
-                <br />
-                {players.length - 1}. plass: <b>{prizes.secondLoser}</b>
-                <br />
-                {players.length - 1}. plass til 2. plass:{" "}
-                <b>{prizes.secondPrize} kr</b>
-                <br />
-              </>
-            ) : (
-              ""
-            )}
-            <br />
+            Diff x <b>{currentGame?.money_multiplier}</b> | Sisteplass:{" "}
+            <b>+ {currentGame?.extra_cost_loser} kr</b> | Nest sist:{" "}
+            <b>+ {currentGame?.extra_cost_second_last} kr</b>
+            <h2>Foreløpig score:</h2>
+            {players
+              .sort((a, b) => b.score - a.score)
+              .map((player: Player, index: number) => {
+                return (
+                  <>
+                    <PlayerCard
+                      position={index + 1}
+                      name={player.nickname}
+                      score={player.score}
+                      earnings={getPlayerEarnings(index)}
+                      diff_down={
+                        index < players.length - 1
+                          ? player.score -
+                            players.sort((a, b) => b.score - a.score)[index + 1]
+                              .score
+                          : undefined
+                      }
+                    />
+                  </>
+                );
+              })}
             <Button
+              sx={{ marginTop: "20px" }}
               variant="contained"
               onClick={() => {
                 setInfoModalOpen(false);
@@ -1400,63 +1383,39 @@ export default function BondeBridge() {
         </Modal>
 
         <Modal open={finalModalOpen} onClose={handleFinalClose}>
-          <div id="rules">
+          <div id="result-modal">
             <h1>Resultat</h1>
-            Spillet ble opprettet:{" "}
-            <b>
-              {currentGame?.created_on
-                ? new Date(currentGame.created_on).toDateString() +
-                  " " +
-                  new Date(currentGame.created_on).getHours() +
-                  ":" +
-                  new Date(currentGame.created_on).getMinutes()
-                : ""}
-            </b>
-            <br />
-            <br />
-            <b>SPILLERE:</b> <br />
+
             {players
               .sort((a, b) => b.score - a.score)
               .map((player: Player, index: number) => {
                 return (
                   <>
-                    {player.nickname} - {player.score} poeng
-                    {index + 1 < players.length ? (
-                      <>
-                        <br />
-                        <br />
-                      </>
-                    ) : (
-                      ""
-                    )}
+                    <PlayerCard
+                      position={index + 1}
+                      name={player.nickname}
+                      score={player.score}
+                      earnings={getPlayerEarnings(index)}
+                      diff_down={
+                        index < players.length - 1
+                          ? player.score -
+                            players.sort((a, b) => b.score - a.score)[index + 1]
+                              .score
+                          : undefined
+                      }
+                    />
                   </>
                 );
               })}
-            <br />
-            <br />
-            <br />
-            <br />
-            <b>PREMIER</b>
-            <br />
-            Vinner: <b>{prizes?.winner}</b>
-            <br />
-            Taper: <b>{prizes?.loser}</b>
-            <br />
-            Taper til vinner: <b>{prizes?.winnerPrize} kr</b>
-            <br />
-            {prizes?.second ? (
-              <>
-                2. plass: <b>{prizes.second}</b>
-                <br />
-                {players.length - 1}. plass: <b>{prizes.secondLoser}</b>
-                <br />
-                {players.length - 1}. plass til 2. plass:{" "}
-                <b>{prizes.secondPrize} kr</b>
-                <br />
-              </>
-            ) : (
-              ""
-            )}
+            <Button
+              sx={{ marginTop: "20px" }}
+              variant="contained"
+              onClick={() => {
+                setFinalModalOpen(false);
+              }}
+            >
+              Lukk
+            </Button>
           </div>
         </Modal>
       </div>
