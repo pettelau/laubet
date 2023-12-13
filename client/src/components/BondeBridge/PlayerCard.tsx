@@ -85,7 +85,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
                 fontSize: "14px",
                 backgroundColor: "#BFF2F5",
                 padding: 0,
-                width: "65px",
+                width: "73px",
                 position: "absolute",
                 right: 5,
                 marginTop: "-27px",
