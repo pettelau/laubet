@@ -692,7 +692,7 @@ export default function BondeBridge() {
               </div>
             )}
             <br />
-            <TableContainer sx={{ marginBottom: 8 }} component={Paper}>
+            <div style={{ height: "90vh", overflow: "scroll" }}>
               <Table sx={{}} aria-label="simple table">
                 <TableHead>
                   <TableRow>
@@ -752,10 +752,17 @@ export default function BondeBridge() {
                           </>
                         );
                       })}
-                      <TableCell></TableCell>
-                      <TableCell></TableCell>
+                    <TableCell></TableCell>
+                    <TableCell></TableCell>
                   </TableRow>
-                  <TableRow>
+                  <TableRow
+                    sx={{
+                      position: "sticky",
+                      top: "-1px",
+                      zIndex: 1,
+                      backgroundColor: "white",
+                    }}
+                  >
                     <>
                       <TableCell>
                         <b>#</b>
@@ -1093,7 +1100,7 @@ export default function BondeBridge() {
                             ].nickname[0].toUpperCase()}
                           </TableCell>
                         </TableRow>
-                        {roundIndex + 3 === NUMBER_OF_ROUNDS * 2 ? (
+                        {roundIndex + 1 === rounds.length ? (
                           <>
                             <TableRow
                               sx={{
@@ -1118,7 +1125,7 @@ export default function BondeBridge() {
                         ) : (
                           ""
                         )}
-                        {roundIndex + 2 === NUMBER_OF_ROUNDS ? (
+                        {roundIndex + 1 === rounds.length / 2 ? (
                           <>
                             <TableRow
                               sx={{
@@ -1148,7 +1155,7 @@ export default function BondeBridge() {
                   })}
                 </TableBody>
               </Table>
-            </TableContainer>
+            </div>
             {currentGame?.status === "finished" ? (
               <>
                 <Button

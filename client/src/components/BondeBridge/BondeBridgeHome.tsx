@@ -103,6 +103,9 @@ export default function BondeBridgeHome() {
     50
   );
 
+  const [numTenRounds, setNumTenRounds] = useState<number | null>(5);
+  const [numNineRounds, setNumNineRounds] = useState<number | null>(2);
+
   const [stats, setStats] = useState<Stats>();
 
   const [users, setUsers] = useState<BondeUser[]>([]);
@@ -185,6 +188,36 @@ export default function BondeBridgeHome() {
     }
     // Down rounds
     for (let j = NUMBER_OF_ROUNDS; j > 1; j--) {
+      if (
+        players.length > 4 &&
+        numTenRounds !== null &&
+        numNineRounds !== null
+      ) {
+        if (j === NUMBER_OF_ROUNDS) {
+          for (let k = 1; k < numTenRounds; k++) {
+            tempRounds.push({
+              round_id: null,
+              dealer_index: _dealerIndex % players.length,
+              num_cards: 10,
+              locked: false,
+              player_scores: tempPlayerScores,
+            });
+            _dealerIndex += 1;
+          }
+        }
+        if (j === NUMBER_OF_ROUNDS - 1) {
+          for (let k = 1; k < numNineRounds; k++) {
+            tempRounds.push({
+              round_id: null,
+              dealer_index: _dealerIndex % players.length,
+              num_cards: 9,
+              locked: false,
+              player_scores: tempPlayerScores,
+            });
+            _dealerIndex += 1;
+          }
+        }
+      }
       tempRounds.push({
         round_id: null,
         dealer_index: _dealerIndex % players.length,
@@ -197,6 +230,36 @@ export default function BondeBridgeHome() {
 
     // Up rounds
     for (let k = 2; k < NUMBER_OF_ROUNDS + 1; k++) {
+      if (
+        players.length > 4 &&
+        numTenRounds !== null &&
+        numNineRounds !== null
+      ) {
+        if (k === NUMBER_OF_ROUNDS) {
+          for (let k = 1; k < numTenRounds; k++) {
+            tempRounds.push({
+              round_id: null,
+              dealer_index: _dealerIndex % players.length,
+              num_cards: 10,
+              locked: false,
+              player_scores: tempPlayerScores,
+            });
+            _dealerIndex += 1;
+          }
+        }
+        if (k === NUMBER_OF_ROUNDS - 1) {
+          for (let k = 1; k < numNineRounds; k++) {
+            tempRounds.push({
+              round_id: null,
+              dealer_index: _dealerIndex % players.length,
+              num_cards: 9,
+              locked: false,
+              player_scores: tempPlayerScores,
+            });
+            _dealerIndex += 1;
+          }
+        }
+      }
       tempRounds.push({
         round_id: null,
         dealer_index: _dealerIndex % players.length,
@@ -599,13 +662,62 @@ export default function BondeBridgeHome() {
             ) : (
               ""
             )}
+            {players.length > 4 ? (
+              <>
+                <br />
+                <br />
+                <FormControl sx={{ minWidth: 210 }}>
+                  <TextField
+                    size="small"
+                    label="Antall 10-runder"
+                    type="number"
+                    value={numTenRounds === null ? "" : numTenRounds}
+                    onChange={(e) => {
+                      if (e.target.value === "") {
+                        setNumTenRounds(null);
+                      } else {
+                        setNumTenRounds(Number(e.target.value));
+                      }
+                    }}
+                  />
+                </FormControl>
+                <br />
+              </>
+            ) : (
+              ""
+            )}
+            {players.length > 4 ? (
+              <>
+                <br />
+                <FormControl sx={{ minWidth: 210 }}>
+                  <TextField
+                    size="small"
+                    label="Antall 9-runder"
+                    type="number"
+                    value={numNineRounds === null ? "" : numNineRounds}
+                    onChange={(e) => {
+                      if (e.target.value === "") {
+                        setNumNineRounds(null);
+                      } else {
+                        setNumNineRounds(Number(e.target.value));
+                      }
+                    }}
+                  />
+                </FormControl>
+                <br />
+              </>
+            ) : (
+              ""
+            )}
             <br />
             <Button
               disabled={
                 players.length < 3 ||
                 moneyMultiplier === null ||
                 extraCostLoser === null ||
-                extraCostSecondLast === null
+                extraCostSecondLast === null ||
+                numNineRounds === null ||
+                numTenRounds === null
               }
               variant="contained"
               onClick={() => {
