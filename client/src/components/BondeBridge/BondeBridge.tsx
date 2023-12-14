@@ -315,6 +315,9 @@ export default function BondeBridge() {
       let consecutiveFails = 0;
       let consecutiveStands = 0;
       for (let j = 0; j <= currentRoundIndex; j++) {
+        if (sortedRounds[j].player_scores[i].stand === null) {
+          break;
+        }
         if (sortedRounds[j].player_scores[i].stand) {
           playerScore +=
             10 +
@@ -1298,6 +1301,7 @@ export default function BondeBridge() {
                       position={index + 1}
                       name={player.nickname}
                       score={player.score}
+                      // score={calcHalfwayScores(index, false)}
                       earnings={getPlayerEarnings(index)}
                       diff_down={
                         index < players.length - 1
@@ -1353,7 +1357,11 @@ export default function BondeBridge() {
                     <TextField
                       sx={{ marginBottom: 1 }}
                       type="number"
-                      label={`${players[index].nickname}`}
+                      label={`${
+                        players.sort(
+                          (a, b) => a.game_player_id - b.game_player_id
+                        )[index].nickname
+                      }`}
                       value={trickInputs[index] || ""}
                       onChange={(e) => handleInputChange(e.target.value, index)}
                     />
