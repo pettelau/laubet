@@ -204,15 +204,40 @@ export const SuccessRates: React.FC<{ successRateData: SuccessRateData }> = ({
               <b>{numberOfRows - index}</b>
             </TableCell>
             {rowKeys.map((rowKey, rowIndex) => {
-              console.log(numberOfRows - index);
+              const row = successRateData[Number(rowKey)];
+              const data = row ? row[numberOfRows - index] : null;
+
+              const base =
+                data && typeof data["stand_percentage"] !== "undefined"
+                  ? `${data["stand_percentage"].toFixed(0)}`
+                  : "-";
+              const exponent =
+                data && typeof data["total_occurrences"] !== "undefined"
+                  ? data["total_occurrences"]
+                  : "-";
+
+              const displayString =
+                base !== "-" && exponent !== "-" ? (
+                  <span style={{ color: "black" }}>
+                    <b>{base}</b>
+                    <sup style={{ marginLeft: "3px" }}>{exponent}</sup>
+                  </span>
+                ) : (
+                  "-"
+                );
+
               if (Number(rowKey) >= numberOfRows - index) {
                 return (
                   <TableCell
+                    align="center"
                     sx={{
+                      padding: "5px",
+                      minWidth: "54px",
                       color: "white",
-                      backgroundColor: getColor(
-                        successRateData[Number(rowKey)][numberOfRows - index]
-                      ),
+                      backgroundColor:
+                        data && typeof data["stand_percentage"] !== "undefined"
+                          ? getColor(data["stand_percentage"])
+                          : "white", // Replace with your default background color
                     }}
                   >
                     {/* {successRateData[numberOfRows - index][0]} */}
@@ -220,14 +245,7 @@ export const SuccessRates: React.FC<{ successRateData: SuccessRateData }> = ({
                     {rowIndex} <br />
                     {index} <br />
                     {numberOfRows - index} */}
-                    {successRateData[Number(rowKey)][numberOfRows - index] !==
-                    undefined ? (
-                      successRateData[Number(rowKey)][
-                        numberOfRows - index
-                      ].toFixed(0)
-                    ) : (
-                      <div style={{ color: "black" }}>-</div>
-                    )}
+                    {displayString}
                   </TableCell>
                 );
               } else {

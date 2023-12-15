@@ -226,7 +226,12 @@ export type AvgDiffs = {
   value: number;
 };
 
-export type SuccessRateData = Record<string, Record<string, number>>;
+type SuccessRateInfo = {
+  stand_percentage: number;
+  total_occurrences: number;
+};
+
+export type SuccessRateData = Record<string, Record<string, SuccessRateInfo>>;
 
 export type PlayerEarnings = {
   [nickname: string]: number;

@@ -1068,7 +1068,8 @@ async def get_stats(
         SELECT 
             r.num_cards,
             ps.num_tricks,
-            ROUND(100.0 * SUM(CASE WHEN ps.stand THEN 1 ELSE 0 END) / COUNT(*), 2) AS stand_percentage
+            ROUND(100.0 * SUM(CASE WHEN ps.stand THEN 1 ELSE 0 END) / COUNT(*), 2) AS stand_percentage,
+            COUNT(*) AS total_occurrences
         FROM 
             rounds r
         JOIN 
@@ -1158,10 +1159,15 @@ async def get_stats(
                 num_cards = row["num_cards"]
                 num_tricks = row["num_tricks"]
                 stand_percentage = row["stand_percentage"]
-                success_rate_data[num_cards][num_tricks] = stand_percentage
+                total_occurrences = row["total_occurrences"]
+                success_rate_data[num_cards][num_tricks] = {
+                    "stand_percentage": stand_percentage,
+                    "total_occurrences": total_occurrences,
+                }
 
             # Convert the defaultdict to a regular dict
             success_rate_data = dict(success_rate_data)
+            print(success_rate_data)
             return {
                 "perc_underbid": perc_underbid,
                 "total_avg_diff": total_avg_diff,
