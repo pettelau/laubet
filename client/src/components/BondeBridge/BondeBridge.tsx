@@ -695,7 +695,7 @@ export default function BondeBridge() {
 
   return (
     <>
-      <div id="rules">
+      <div id="rules" style={{ marginBottom: "70px" }}>
         {rounds[0] === undefined ? (
           <>Henter runde ...</>
         ) : (
@@ -703,8 +703,7 @@ export default function BondeBridge() {
             {showGif && (
               <div className="modalOverlay">
                 <img
-                  // src={`/bm2.gif`}
-                  src={`/bm${Math.floor(Math.random() * 13) + 1}.gif`}
+                  src={`/bm${Math.floor(Math.random() * 17) + 1}.gif`}
                   alt="Description of GIF"
                 />
               </div>
@@ -1218,24 +1217,27 @@ export default function BondeBridge() {
                       (player: PlayerScore, index: number) => {
                         return (
                           <>
-                            <Checkbox
-                              checked={!!player.stand}
-                              onChange={(event) => {
-                                handleStandChange(
-                                  event.target.checked,
-                                  currentRoundIndex,
-                                  index
-                                );
-                              }}
-                            />{" "}
-                            <b>
-                              {
-                                players.sort(
-                                  (a, b) => a.game_player_id - b.game_player_id
-                                )[index].nickname
-                              }
-                            </b>
-                            <br />
+                            <div style={{ marginBottom: "10px" }}>
+                              <Checkbox
+                                checked={!!player.stand}
+                                onChange={(event) => {
+                                  handleStandChange(
+                                    event.target.checked,
+                                    currentRoundIndex,
+                                    index
+                                  );
+                                }}
+                              />{" "}
+                              <b>
+                                {
+                                  players.sort(
+                                    (a, b) =>
+                                      a.game_player_id - b.game_player_id
+                                  )[index].nickname
+                                }
+                              </b>
+                              <br />
+                            </div>
                           </>
                         );
                       }
