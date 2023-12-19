@@ -45,6 +45,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   BleedingsTable,
   GaugeWithNeedle,
+  PlayerAggressionChart,
   PlayerEarningsTable,
   PositiveAndNegativeBarChart,
   SimplePieChart,
@@ -159,7 +160,7 @@ export default function BondeBridgeHome() {
         body: JSON.stringify({
           game_id: game_id,
           rounds: tempRounds,
-          num_players: players.length,
+          game_player_ids: game_player_ids.sort(),
         }),
       });
 
@@ -182,6 +183,7 @@ export default function BondeBridgeHome() {
     for (let i = 0; i < players.length; i++) {
       tempPlayerScores.push({
         player_scores_id: undefined,
+        game_player_id: undefined,
         num_tricks: null,
         stand: null,
       });
@@ -789,6 +791,8 @@ export default function BondeBridgeHome() {
                   <GaugeWithNeedle value={stats.total_avg_diff} />
                 </div>
                 <h2>{stats.total_avg_diff}</h2>
+                <h2>GJ.SNITT BUD PER SPILLER PER ANTALL KORT</h2>
+                <PlayerAggressionChart aggressionData={stats.player_aggression} />
                 <h2>Success rates</h2>
                 <SuccessRates successRateData={stats.success_rates} />
                 <h2>Inntjeninger/tap</h2>

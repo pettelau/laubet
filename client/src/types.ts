@@ -194,6 +194,7 @@ export type Round = {
 
 export type PlayerScore = {
   player_scores_id: number | undefined;
+  game_player_id: number | undefined;
   num_tricks: number | null;
   stand: boolean | null;
 };
@@ -219,6 +220,12 @@ export type Stats = {
   success_rates: SuccessRateData;
   player_earnings: PlayerEarnings;
   bleedings: BleedingsStats[];
+  player_aggression: PlayerAggression[];
+};
+
+export type PlayerAggression = {
+  num_cards: number;
+  [nickname: string]: number;
 };
 
 export type AvgDiffs = {

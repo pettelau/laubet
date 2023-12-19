@@ -6,6 +6,7 @@ import {
   SuccessRateData,
   PlayerEarnings,
   BleedingsStats,
+  PlayerAggression,
 } from "../../types";
 
 import {
@@ -21,6 +22,8 @@ import {
   ReferenceLine,
   Legend,
   ResponsiveContainer,
+  LineChart,
+  Line,
 } from "recharts";
 import {
   Table,
@@ -266,6 +269,53 @@ export const SuccessRates: React.FC<{ successRateData: SuccessRateData }> = ({
         </TableRow>
       </Table>
     </>
+  );
+};
+
+export const PlayerAggressionChart: React.FC<{
+  aggressionData: PlayerAggression[];
+}> = ({ aggressionData }) => {
+  const playerNames = Object.keys(aggressionData[0]).filter((key) => key !== "num_cards");
+
+  // Optionally, define a function or array to assign colors to each player's line
+  const getColor = (index: number) => {
+    const colors = [
+      "#FF6384",
+      "#36A2EB",
+      "#FFCE56",
+      "#4BC0C0",
+      "#9966FF",
+      "#FF9F40",
+      "#EA80FC",
+      "#66BB6A",
+      "#FF5252",
+      "#00E676",
+    ];
+    return colors[index % colors.length];
+  };
+
+  return (
+    <LineChart
+      width={730}
+      height={250}
+      data={aggressionData}
+      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+    >
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis dataKey="num_cards" />
+      <YAxis />
+      <Tooltip />
+      <Legend />
+
+      {playerNames.map((name, index) => (
+        <Line
+          key={name}
+          type="monotone"
+          dataKey={name}
+          stroke={getColor(index)}
+        />
+      ))}
+    </LineChart>
   );
 };
 
