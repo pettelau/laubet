@@ -221,6 +221,7 @@ export type Stats = {
   player_earnings: PlayerEarnings;
   bleedings: BleedingsStats[];
   player_aggression: PlayerAggression[];
+  player_aggression_stand: PlayerAggression[];
 };
 
 export type PlayerAggression = {

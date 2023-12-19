@@ -115,6 +115,8 @@ export default function BondeBridgeHome() {
 
   const [exclusiveSelect, setExclusiveSelect] = useState<boolean>(false);
 
+  const [onlyStandRounds, setOnlyStandRounds] = useState<boolean>(false);
+
   const [emptyStatsSet, setEmptyStatsSet] = useState<boolean>(false);
 
   const [players, setPlayers] = useState<PlayerPreGame[]>([]);
@@ -369,6 +371,12 @@ export default function BondeBridgeHome() {
 
   const handleSwitchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setExclusiveSelect(event.target.checked);
+  };
+
+  const handleStandSwitchChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setOnlyStandRounds(event.target.checked);
   };
 
   const handlePlayerSelect = (event: any, newValues: BondeUser[] | null) => {
@@ -792,7 +800,29 @@ export default function BondeBridgeHome() {
                 </div>
                 <h2>{stats.total_avg_diff}</h2>
                 <h2>GJ.SNITT BUD PER SPILLER PER ANTALL KORT</h2>
-                <PlayerAggressionChart aggressionData={stats.player_aggression} />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={onlyStandRounds}
+                      onChange={handleStandSwitchChange}
+                      inputProps={{ "aria-label": "controlled" }}
+                    />
+                  }
+                  label="Vis kun stats hvor hvor spilleren sto runden sin"
+                />
+                <PlayerAggressionChart
+                  aggressionData={
+                    onlyStandRounds
+                      ? stats.player_aggression_stand
+                      : stats.player_aggression
+                  }
+                />
+                <br />
+                <Alert severity="info">
+                  Husk at du kan velge å vise stats for bare spesifikke spillere
+                  dersom grafen er uoversiktlig.
+                </Alert>
+                <br />
                 <h2>Success rates</h2>
                 <SuccessRates successRateData={stats.success_rates} />
                 <h2>Inntjeninger/tap</h2>

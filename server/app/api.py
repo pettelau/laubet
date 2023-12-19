@@ -1096,6 +1096,23 @@ async def get_stats(
             gp.player_id = bu.player_id
         left join games g on r.game_id = g.game_id 
         """
+
+        base_query4 = """
+        select
+            bu.nickname,
+            r.num_cards,
+            ROUND(AVG(ps.num_tricks), 1) AS avg_tricks,
+            COUNT(DISTINCT r.round_id) AS num_rounds
+        from
+            player_scores ps
+        left join rounds r on
+            ps.round_id = r.round_id
+        left join game_players gp on
+            ps.game_player_id = gp.game_player_id
+        left join bonde_users bu on
+            gp.player_id = bu.player_id
+        left join games g on r.game_id = g.game_id 
+        """
         exclusive = exclusiveselect.lower() == "true"
         # If playerIds are provided, filter results
         if playerIds:
@@ -1121,6 +1138,9 @@ async def get_stats(
             base_query3 += (
                 f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])})"
             )
+            base_query4 += f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])}) ps.stand = TRUE group by r.num_cards, bu.nickname"
+        else:
+            base_query4 += "WHERE ps.stand = TRUE group by r.num_cards, bu.nickname"
 
         base_query1 += " GROUP BY round_id ORDER BY num_cards DESC;"
         base_query2 += (
@@ -1131,6 +1151,7 @@ async def get_stats(
         result1 = fetchDBJsonNew(base_query1)
         result2 = fetchDBJsonNew(base_query2)
         result3 = fetchDBJsonNew(base_query3)
+        result4 = fetchDBJsonNew(base_query4)
 
         player_earnings = calc_player_earnings(playerIds)
 
@@ -1202,9 +1223,23 @@ async def get_stats(
             # Convert the dictionary into a list for Recharts
             player_aggression = list(avg_bids_by_cards.values())
 
+            avg_bids_by_cards_stand = {}
+
+            for item in result4:
+                num_cards = item["num_cards"]
+                nickname = item["nickname"]
+                avg = round(item["avg_tricks"], 1)
+
+                if num_cards not in avg_bids_by_cards_stand:
+                    avg_bids_by_cards_stand[num_cards] = {"num_cards": num_cards}
+
+                avg_bids_by_cards_stand[num_cards][nickname] = avg
+
+            # Convert the dictionary into a list for Recharts
+            player_aggression_stand = list(avg_bids_by_cards_stand.values())
+
             # Convert the defaultdict to a regular dict
             success_rate_data = dict(success_rate_data)
-            print(success_rate_data)
             return {
                 "perc_underbid": perc_underbid,
                 "total_avg_diff": total_avg_diff,
@@ -1213,6 +1248,7 @@ async def get_stats(
                 "player_earnings": player_earnings,
                 "bleedings": bleedings,
                 "player_aggression": player_aggression,
+                "player_aggression_stand": player_aggression_stand,
             }
         else:
             return Response(status_code=204)
