@@ -1138,7 +1138,7 @@ async def get_stats(
             base_query3 += (
                 f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])})"
             )
-            base_query4 += f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])}) ps.stand = TRUE group by r.num_cards, bu.nickname"
+            base_query4 += f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])}) and ps.stand = TRUE group by r.num_cards, bu.nickname"
         else:
             base_query4 += "WHERE ps.stand = TRUE group by r.num_cards, bu.nickname"
 
