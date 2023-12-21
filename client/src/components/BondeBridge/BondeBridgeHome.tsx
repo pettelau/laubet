@@ -778,7 +778,7 @@ export default function BondeBridgeHome() {
               <Autocomplete
                 multiple
                 id="player-select"
-                options={users}
+                options={sortedUsers}
                 getOptionLabel={(option) => option.nickname}
                 value={users.filter((user) =>
                   selectedUserIDs.includes(user.player_id)
@@ -786,6 +786,22 @@ export default function BondeBridgeHome() {
                 onChange={(_, newValue) => {
                   setSelectedUserIDs(newValue.map((user) => user.player_id));
                 }}
+                renderOption={(props, option) => (
+                  <li
+                    {...props}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      width: "100%",
+                    }}
+                  >
+                    {option.nickname}
+                    {option.favorite && (
+                      <StarIcon style={{ fontSize: "1rem" }} />
+                    )}
+                  </li>
+                )}
                 renderInput={(params) => (
                   <TextField
                     {...params}
