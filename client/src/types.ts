@@ -211,6 +211,7 @@ export type Prizes = {
 export type BondeUser = {
   player_id: number;
   nickname: string;
+  favorite: boolean;
 };
 
 export type Stats = {

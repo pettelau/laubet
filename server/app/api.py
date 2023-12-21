@@ -1290,7 +1290,7 @@ async def get_game(game_id: int):
 @app.get("/api/bonde/users")
 async def get_users():
     # try:
-    query = "SELECT player_id, nickname FROM bonde_users;"
+    query = "SELECT player_id, nickname, favorite FROM bonde_users"
     users = fetchDBJsonNew(query)
 
     # except Exception as e:

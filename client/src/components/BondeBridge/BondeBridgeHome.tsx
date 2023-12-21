@@ -38,6 +38,7 @@ import {
 import { useAppSelector } from "../../redux/hooks";
 import { selectPath } from "../../redux/envSlice";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import StarIcon from "@mui/icons-material/Star";
 
 import MuiAlert, { AlertProps } from "@mui/material/Alert";
 
@@ -110,6 +111,11 @@ export default function BondeBridgeHome() {
   const [stats, setStats] = useState<Stats>();
 
   const [users, setUsers] = useState<BondeUser[]>([]);
+  const sortedUsers = [...users].sort((a, b) => {
+    if (a.favorite && !b.favorite) return -1;
+    if (!a.favorite && b.favorite) return 1;
+    return 0;
+  });
 
   const [selectedUserIDs, setSelectedUserIDs] = useState<number[]>([]);
 
@@ -415,6 +421,12 @@ export default function BondeBridgeHome() {
     setSnackOpen(true);
   };
 
+  // dont need favorite to be brought further with the player after creation of game
+  const playersForAutocomplete = players.map((player) => {
+    // Assuming `player` has all the necessary fields that a `BondeUser` would have
+    return { ...player, favorite: false }; // Add 'favorite' field
+  });
+
   const handleSnackClose = (
     event?: React.SyntheticEvent | Event,
     reason?: string
@@ -536,14 +548,29 @@ export default function BondeBridgeHome() {
               <Autocomplete
                 multiple
                 filterSelectedOptions
-                options={users}
+                options={sortedUsers}
                 getOptionLabel={(option) => option.nickname}
-                //@ts-ignore
                 onChange={handlePlayerSelect}
-                value={players} // Map selected players to BondeUser type for Autocomplete
+                value={playersForAutocomplete}
                 isOptionEqualToValue={(option, value) =>
                   option.player_id === value.player_id
                 }
+                renderOption={(props, option) => (
+                  <li
+                    {...props}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      width: "100%",
+                    }}
+                  >
+                    {option.nickname}
+                    {option.favorite && (
+                      <StarIcon style={{ fontSize: "1rem" }} />
+                    )}
+                  </li>
+                )}
                 renderInput={(params) => (
                   <TextField
                     {...params}
