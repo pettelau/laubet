@@ -45,6 +45,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import PlayerCard from "./PlayerCard";
+import { BleedingsTable } from "./StatsCharts";
 
 const style = {
   position: "absolute" as "absolute",
@@ -84,6 +85,8 @@ export default function BondeBridge() {
   const [currentGame, setCurrentGame] = useState<Game>();
 
   const [reBitState, setReBidState] = useState<boolean>(false);
+
+  const [blueberryMode, setBlueberryMode] = useState<boolean>(false);
 
   const [players, setPlayers] = useState<Player[]>([]);
 
@@ -775,8 +778,32 @@ export default function BondeBridge() {
                           </>
                         );
                       })}
-                    <TableCell></TableCell>
-                    <TableCell></TableCell>
+                    <TableCell colSpan={2}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-end",
+                          paddingRight: "0px",
+                        }}
+                      >
+                        <img
+                          height="30"
+                          src="/blueberry.png"
+                          alt="Blueberry"
+                          style={{
+                            filter: blueberryMode ? "none" : "grayscale(100%)",
+                          }}
+                        />
+                        <Switch
+                          style={{ marginRight: "5px" }}
+                          checked={blueberryMode}
+                          onChange={() => {
+                            setBlueberryMode((prev) => !prev);
+                          }}
+                        />
+                      </div>
+                    </TableCell>
                   </TableRow>
                   <TableRow
                     sx={{
@@ -916,8 +943,13 @@ export default function BondeBridge() {
                                   <TableCell
                                     align="center"
                                     sx={{
+                                      height: 53,
+                                      padding: 0,
                                       width: 300,
-                                      backgroundColor: backgroundColor,
+                                      backgroundColor:
+                                        blueberryMode && !score.stand
+                                          ? "white"
+                                          : backgroundColor,
                                     }}
                                   >
                                     {currentRoundIndex === roundIndex &&
@@ -964,7 +996,16 @@ export default function BondeBridge() {
                                         </button>
                                       </div>
                                     ) : score.num_tricks !== null ? (
-                                      10 + Math.pow(score.num_tricks, 2)
+                                      blueberryMode && !score.stand ? (
+                                        <img
+                                          height={43}
+                                          src="/blueberry.png"
+                                          alt="Blueberry"
+                                          style={{ marginTop: "4px" }}
+                                        />
+                                      ) : (
+                                        10 + Math.pow(score.num_tricks, 2)
+                                      )
                                     ) : (
                                       ""
                                     )}
@@ -1143,6 +1184,8 @@ export default function BondeBridge() {
                                   </>
                                 );
                               })}
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
                             </TableRow>
                           </>
                         ) : (
@@ -1168,6 +1211,8 @@ export default function BondeBridge() {
                                   </>
                                 );
                               })}
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
                             </TableRow>
                           </>
                         ) : (
