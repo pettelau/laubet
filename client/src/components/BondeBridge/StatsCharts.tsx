@@ -275,7 +275,12 @@ export const SuccessRates: React.FC<{ successRateData: SuccessRateData }> = ({
 export const PlayerAggressionChart: React.FC<{
   aggressionData: PlayerAggression[];
 }> = ({ aggressionData }) => {
-  const playerNames = Object.keys(aggressionData[0]).filter((key) => key !== "num_cards");
+  if (aggressionData.length === 0) {
+    return <></>;
+  }
+  const playerNames = Object.keys(aggressionData[0]).filter(
+    (key) => key !== "num_cards"
+  );
 
   // Optionally, define a function or array to assign colors to each player's line
   const getColor = (index: number) => {
