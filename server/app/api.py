@@ -1056,205 +1056,202 @@ async def get_stats(
     playerIds: Optional[str] = None, exclusiveselect: Optional[str] = "False"
 ):
     # Fetching needed data from db
-    try:
-        base_query1 = """
-        SELECT SUM(num_tricks), MAX(num_cards) as num_cards
-        FROM player_scores
-        NATURAL JOIN rounds LEFT JOIN games on rounds.game_id = games.game_id
-        WHERE stand IS NOT NULL
+    # try:
+    base_query1 = """
+    SELECT SUM(num_tricks), MAX(num_cards) as num_cards
+    FROM player_scores
+    NATURAL JOIN rounds LEFT JOIN games on rounds.game_id = games.game_id
+    WHERE stand IS NOT NULL
 
-        """
-        base_query2 = """
-        SELECT 
-            r.num_cards,
-            ps.num_tricks,
-            ROUND(100.0 * SUM(CASE WHEN ps.stand THEN 1 ELSE 0 END) / COUNT(*), 2) AS stand_percentage,
-            COUNT(*) AS total_occurrences
-        FROM 
-            rounds r
-        JOIN 
-            player_scores ps ON r.round_id = ps.round_id
-        JOIN
-            games ON r.game_id = games.game_id
-        WHERE 
-            ps.num_tricks IS NOT NULL
-        """
+    """
+    base_query2 = """
+    SELECT 
+        r.num_cards,
+        ps.num_tricks,
+        ROUND(100.0 * SUM(CASE WHEN ps.stand THEN 1 ELSE 0 END) / COUNT(*), 2) AS stand_percentage,
+        COUNT(*) AS total_occurrences
+    FROM 
+        rounds r
+    JOIN 
+        player_scores ps ON r.round_id = ps.round_id
+    JOIN
+        games ON r.game_id = games.game_id
+    WHERE 
+        ps.num_tricks IS NOT NULL
+    """
 
-        base_query3 = """
-        select
-            bu.nickname,
-            r.num_cards,
-            ROUND(AVG(ps.num_tricks), 1) AS avg_tricks,
-            COUNT(DISTINCT r.round_id) AS num_rounds
-        from
-            player_scores ps
-        left join rounds r on
-            ps.round_id = r.round_id
-        left join game_players gp on
-            ps.game_player_id = gp.game_player_id
-        left join bonde_users bu on
-            gp.player_id = bu.player_id
-        left join games g on r.game_id = g.game_id 
-        """
+    base_query3 = """
+    select
+        bu.nickname,
+        r.num_cards,
+        ROUND(AVG(ps.num_tricks), 1) AS avg_tricks,
+        COUNT(DISTINCT r.round_id) AS num_rounds
+    from
+        player_scores ps
+    left join rounds r on
+        ps.round_id = r.round_id
+    left join game_players gp on
+        ps.game_player_id = gp.game_player_id
+    left join bonde_users bu on
+        gp.player_id = bu.player_id
+    left join games g on r.game_id = g.game_id 
+    """
 
-        base_query4 = """
-        select
-            bu.nickname,
-            r.num_cards,
-            ROUND(AVG(ps.num_tricks), 1) AS avg_tricks,
-            COUNT(DISTINCT r.round_id) AS num_rounds
-        from
-            player_scores ps
-        left join rounds r on
-            ps.round_id = r.round_id
-        left join game_players gp on
-            ps.game_player_id = gp.game_player_id
-        left join bonde_users bu on
-            gp.player_id = bu.player_id
-        left join games g on r.game_id = g.game_id 
-        """
-        exclusive = exclusiveselect.lower() == "true"
-        # If playerIds are provided, filter results
-        if playerIds:
-            ids_list = playerIds.split(",")
+    base_query4 = """
+    select
+        bu.nickname,
+        r.num_cards,
+        ROUND(AVG(ps.num_tricks), 1) AS avg_tricks,
+        COUNT(DISTINCT r.round_id) AS num_rounds
+    from
+        player_scores ps
+    left join rounds r on
+        ps.round_id = r.round_id
+    left join game_players gp on
+        ps.game_player_id = gp.game_player_id
+    left join bonde_users bu on
+        gp.player_id = bu.player_id
+    left join games g on r.game_id = g.game_id 
+    """
+    exclusive = exclusiveselect.lower() == "true"
+    # If playerIds are provided, filter results
+    if playerIds:
+        ids_list = playerIds.split(",")
 
-            # Convert the string IDs to integers
-            ids_list = [int(id) for id in ids_list]
+        # Convert the string IDs to integers
+        ids_list = [int(id) for id in ids_list]
 
-            player_condition = f" AND games.game_id IN (SELECT game_id \
-                            FROM game_players \
-                            WHERE player_id IN ({','.join([str(id) for id in ids_list])}) \
-                            GROUP BY game_id"
+        player_condition = f" AND games.game_id IN (SELECT game_id \
+                        FROM game_players \
+                        WHERE player_id IN ({','.join([str(id) for id in ids_list])}) \
+                        GROUP BY game_id"
 
-            if exclusive:
-                player_condition += (
-                    f" HAVING COUNT(DISTINCT player_id) = {len(ids_list)})"
-                )
+        if exclusive:
+            player_condition += f" HAVING COUNT(DISTINCT player_id) = {len(ids_list)})"
+        else:
+            player_condition += ")"
+
+        base_query1 += player_condition
+        base_query2 += player_condition
+        base_query3 += f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])}) and g.status = 'finished'"
+        base_query4 += f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])}) and ps.stand = TRUE group by r.num_cards, bu.nickname"
+    else:
+        base_query3 += "WHERE g.status = 'finished'"
+        base_query4 += "WHERE ps.stand = TRUE group by r.num_cards, bu.nickname"
+
+    base_query1 += " GROUP BY round_id ORDER BY num_cards DESC;"
+    base_query2 += (
+        "  GROUP BY r.num_cards, ps.num_tricks ORDER BY r.num_cards, ps.num_tricks"
+    )
+    base_query3 += " group by r.num_cards, bu.nickname"
+
+    result1 = fetchDBJsonNew(base_query1)
+    result2 = fetchDBJsonNew(base_query2)
+    result3 = fetchDBJsonNew(base_query3)
+    result4 = fetchDBJsonNew(base_query4)
+
+    player_earnings = calc_player_earnings(playerIds)
+
+    bleedings_query = "select nickname, SUM(bleedings) as total_bleedings, SUM(warnings) as total_warnings from game_players left join bonde_users on game_players.player_id = bonde_users.player_id group by bonde_users.nickname order by total_bleedings DESC"
+
+    bleedings = fetchDBJsonNew(bleedings_query)
+    print(bleedings)
+
+    if result1 and result2:
+        num_underbid = 0
+        num_overbid = 0
+        total_diff = 0
+
+        diffs = {}
+        counts = {}
+        chart_data = []
+        for row in result1:
+            sum_val = row["sum"]
+            num_cards = row["num_cards"]
+            if sum_val < num_cards:
+                num_underbid += 1
             else:
-                player_condition += ")"
+                num_overbid += 1
+            total_diff += sum_val - num_cards
 
-            base_query1 += player_condition
-            base_query2 += player_condition
-            base_query3 += (
-                f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])})"
-            )
-            base_query4 += f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])}) and ps.stand = TRUE group by r.num_cards, bu.nickname"
-        else:
-            base_query4 += "WHERE ps.stand = TRUE group by r.num_cards, bu.nickname"
+            difference = sum_val - num_cards
 
-        base_query1 += " GROUP BY round_id ORDER BY num_cards DESC;"
-        base_query2 += (
-            "  GROUP BY r.num_cards, ps.num_tricks ORDER BY r.num_cards, ps.num_tricks"
-        )
-        base_query3 += " group by r.num_cards, bu.nickname"
+            # Update diffs and counts dictionaries
+            if num_cards in diffs:
+                diffs[num_cards] += difference
+                counts[num_cards] += 1
+            else:
+                diffs[num_cards] = difference
+                counts[num_cards] = 1
 
-        result1 = fetchDBJsonNew(base_query1)
-        result2 = fetchDBJsonNew(base_query2)
-        result3 = fetchDBJsonNew(base_query3)
-        result4 = fetchDBJsonNew(base_query4)
+        total_avg_diff = round((total_diff / len(result1)), 1)
+        for num_cards in diffs:
+            avg_diff = round(diffs[num_cards] / counts[num_cards], 2)
+            chart_data.append({"name": str(num_cards), "value": avg_diff})
 
-        player_earnings = calc_player_earnings(playerIds)
+        perc_underbid = round(num_underbid / len(result1) * 100, 1)
 
-        bleedings_query = "select nickname, SUM(bleedings) as total_bleedings, SUM(warnings) as total_warnings from game_players left join bonde_users on game_players.player_id = bonde_users.player_id group by bonde_users.nickname order by total_bleedings DESC"
+        # Initialize an empty defaultdict
+        success_rate_data = defaultdict(dict)
 
-        bleedings = fetchDBJsonNew(bleedings_query)
-        print(bleedings)
-
-        if result1 and result2:
-            num_underbid = 0
-            num_overbid = 0
-            total_diff = 0
-
-            diffs = {}
-            counts = {}
-            chart_data = []
-            for row in result1:
-                sum_val = row["sum"]
-                num_cards = row["num_cards"]
-                if sum_val < num_cards:
-                    num_underbid += 1
-                else:
-                    num_overbid += 1
-                total_diff += sum_val - num_cards
-
-                difference = sum_val - num_cards
-
-                # Update diffs and counts dictionaries
-                if num_cards in diffs:
-                    diffs[num_cards] += difference
-                    counts[num_cards] += 1
-                else:
-                    diffs[num_cards] = difference
-                    counts[num_cards] = 1
-
-            total_avg_diff = round((total_diff / len(result1)), 1)
-            for num_cards in diffs:
-                avg_diff = round(diffs[num_cards] / counts[num_cards], 2)
-                chart_data.append({"name": str(num_cards), "value": avg_diff})
-
-            perc_underbid = round(num_underbid / len(result1) * 100, 1)
-
-            # Initialize an empty defaultdict
-            success_rate_data = defaultdict(dict)
-
-            # Populate the defaultdict with the query results
-            for row in result2:
-                num_cards = row["num_cards"]
-                num_tricks = row["num_tricks"]
-                stand_percentage = row["stand_percentage"]
-                total_occurrences = row["total_occurrences"]
-                success_rate_data[num_cards][num_tricks] = {
-                    "stand_percentage": stand_percentage,
-                    "total_occurrences": total_occurrences,
-                }
-
-            avg_bids_by_cards = {}
-
-            for item in result3:
-                num_cards = item["num_cards"]
-                nickname = item["nickname"]
-                avg = round(item["avg_tricks"], 1)
-
-                if num_cards not in avg_bids_by_cards:
-                    avg_bids_by_cards[num_cards] = {"num_cards": num_cards}
-
-                avg_bids_by_cards[num_cards][nickname] = avg
-
-            # Convert the dictionary into a list for Recharts
-            player_aggression = list(avg_bids_by_cards.values())
-
-            avg_bids_by_cards_stand = {}
-
-            for item in result4:
-                num_cards = item["num_cards"]
-                nickname = item["nickname"]
-                avg = round(item["avg_tricks"], 1)
-
-                if num_cards not in avg_bids_by_cards_stand:
-                    avg_bids_by_cards_stand[num_cards] = {"num_cards": num_cards}
-
-                avg_bids_by_cards_stand[num_cards][nickname] = avg
-
-            # Convert the dictionary into a list for Recharts
-            player_aggression_stand = list(avg_bids_by_cards_stand.values())
-
-            # Convert the defaultdict to a regular dict
-            success_rate_data = dict(success_rate_data)
-            return {
-                "perc_underbid": perc_underbid,
-                "total_avg_diff": total_avg_diff,
-                "avg_diffs": chart_data,
-                "success_rates": success_rate_data,
-                "player_earnings": player_earnings,
-                "bleedings": bleedings,
-                "player_aggression": player_aggression,
-                "player_aggression_stand": player_aggression_stand,
+        # Populate the defaultdict with the query results
+        for row in result2:
+            num_cards = row["num_cards"]
+            num_tricks = row["num_tricks"]
+            stand_percentage = row["stand_percentage"]
+            total_occurrences = row["total_occurrences"]
+            success_rate_data[num_cards][num_tricks] = {
+                "stand_percentage": stand_percentage,
+                "total_occurrences": total_occurrences,
             }
-        else:
-            return Response(status_code=204)
-    except Exception as e:
-        print(e)
-        raise HTTPException(status_code=400, detail=f"Error: {e}")
+
+        avg_bids_by_cards = {}
+
+        for item in result3:
+            num_cards = item["num_cards"]
+            nickname = item["nickname"]
+            avg = round(item["avg_tricks"], 1)
+
+            if num_cards not in avg_bids_by_cards:
+                avg_bids_by_cards[num_cards] = {"num_cards": num_cards}
+
+            avg_bids_by_cards[num_cards][nickname] = avg
+
+        # Convert the dictionary into a list for Recharts
+        player_aggression = list(avg_bids_by_cards.values())
+
+        avg_bids_by_cards_stand = {}
+
+        for item in result4:
+            num_cards = item["num_cards"]
+            nickname = item["nickname"]
+            avg = round(item["avg_tricks"], 1)
+
+            if num_cards not in avg_bids_by_cards_stand:
+                avg_bids_by_cards_stand[num_cards] = {"num_cards": num_cards}
+
+            avg_bids_by_cards_stand[num_cards][nickname] = avg
+
+        # Convert the dictionary into a list for Recharts
+        player_aggression_stand = list(avg_bids_by_cards_stand.values())
+
+        # Convert the defaultdict to a regular dict
+        success_rate_data = dict(success_rate_data)
+        return {
+            "perc_underbid": perc_underbid,
+            "total_avg_diff": total_avg_diff,
+            "avg_diffs": chart_data,
+            "success_rates": success_rate_data,
+            "player_earnings": player_earnings,
+            "bleedings": bleedings,
+            "player_aggression": player_aggression,
+            "player_aggression_stand": player_aggression_stand,
+        }
+    else:
+        return Response(status_code=204)
+    # except Exception as e:
+    #     print(e)
+    #     raise HTTPException(status_code=400, detail=f"Error: {e}")
 
 
 @app.get("/api/bonde/game/{game_id}")
