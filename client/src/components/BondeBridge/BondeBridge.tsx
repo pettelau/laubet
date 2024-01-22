@@ -595,8 +595,6 @@ export default function BondeBridge() {
   }
 
   async function updatePlayerScores() {
-    console.log("here");
-    console.log(players);
     if (players.length > 0) {
       try {
         const response = await fetch(`${url_path}api/bonde/playerdata`, {
