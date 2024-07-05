@@ -1,13 +1,12 @@
 from typing import List
-from fastapi import HTTPException
+from fastapi import APIRouter, HTTPException
 from time import sleep
 from fastapi import FastAPI, Depends
-from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
-from .postgresPool import pool
+from postgresPool import pool
 from string import Template
 import bcrypt
-from .auth_utils import authUtils
+from auth_utils import authUtils
 from psycopg2.extras import RealDictCursor
 import datetime
 import pytz
@@ -78,21 +77,11 @@ def insertDB(query):
 # print(db_version)
 
 
-app = FastAPI()
-
-origins = ["*"]
+api_router = APIRouter()
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-
-@app.get("/api/openbets")
+@api_router.get("/api/openbets")
 async def get_open_bets(token: str = Depends(authUtils.validate_access_token)):
     bets = fetchDBJson(
         "select * from bets where bet_status = 1 and is_accepted = true and close_timestamp > NOW() and closed_early IS NULL ORDER BY close_timestamp ASC"
@@ -110,7 +99,7 @@ async def get_open_bets(token: str = Depends(authUtils.validate_access_token)):
     return bets_with_options
 
 
-@app.get("/api/requestedbets")
+@api_router.get("/api/requestedbets")
 async def get_open_bets(token: str = Depends(authUtils.validate_access_token)):
     bets = fetchDBJson("select * from bets where is_accepted = false")
     bets_with_options = []
@@ -127,14 +116,14 @@ async def get_open_bets(token: str = Depends(authUtils.validate_access_token)):
 
 
 # leaderboard date range, currently not implemented
-# @app.get("/api/leaderboard/")
+# @api_router.get("/api/leaderboard/")
 # async def get_open_bets(
 #     fromDate, toDate, token: str = Depends(authUtils.validate_access_token)
 # ) :
 #     print(fromDate, toDate)
 
 
-@app.get("/api/leaderboard")
+@api_router.get("/api/leaderboard")
 async def get_leaderboard(
     token: str = Depends(authUtils.validate_access_token),
 ):
@@ -175,7 +164,7 @@ def is_admin(username):
         return False
 
 
-@app.get("/api/admin/allbets")
+@api_router.get("/api/admin/allbets")
 async def get_all_admin_bets(
     token: str = Depends(authUtils.validate_access_token),
 ):
@@ -196,13 +185,13 @@ async def get_all_admin_bets(
         raise HTTPException(status_code=403, detail="You are not admin")
 
 
-@app.get("/api/dictionary")
+@api_router.get("/api/dictionary")
 async def get_dictionary(token: str = Depends(authUtils.validate_access_token)):
     res = fetchDBJson("select * from dictionary order by word_id DESC")
     return res
 
 
-@app.get("/api/competition")
+@api_router.get("/api/competition")
 async def get_dictionary(token: str = Depends(authUtils.validate_access_token)):
     res = fetchDBJson(
         "select username, registered from users left join competition on users.user_id = competition.user_id"
@@ -210,7 +199,7 @@ async def get_dictionary(token: str = Depends(authUtils.validate_access_token)):
     return res
 
 
-@app.post("/api/submitword")
+@api_router.post("/api/submitword")
 async def add_to_dictionary(
     payload: dict, token: str = Depends(authUtils.validate_access_token)
 ):
@@ -233,7 +222,7 @@ async def add_to_dictionary(
         raise HTTPException(status_code=403, detail="Something went wrong")
 
 
-@app.post("/api/updatecompetition")
+@api_router.post("/api/updatecompetition")
 async def update_comp(
     payload: dict, token: str = Depends(authUtils.validate_access_token)
 ):
@@ -254,7 +243,7 @@ async def update_comp(
         raise HTTPException(status_code=403, detail="Something went wrong")
 
 
-@app.get("/api/accums")
+@api_router.get("/api/accums")
 async def get_accums(token: str = Depends(authUtils.validate_access_token)):
     accums = fetchDBJson(
         Template(
@@ -276,7 +265,7 @@ async def get_accums(token: str = Depends(authUtils.validate_access_token)):
     return accums_with_options
 
 
-@app.get("/api/useraccums/")
+@api_router.get("/api/useraccums/")
 async def get_accums(user, token: str = Depends(authUtils.validate_access_token)):
     accums = fetchDBJson(
         Template(
@@ -298,7 +287,7 @@ async def get_accums(user, token: str = Depends(authUtils.validate_access_token)
     return accums_with_options
 
 
-@app.get("/api/publicuserdata/")
+@api_router.get("/api/publicuserdata/")
 async def get_accums(user, token: str = Depends(authUtils.validate_access_token)):
     data = fetchDBJson(
         Template(
@@ -308,7 +297,7 @@ async def get_accums(user, token: str = Depends(authUtils.validate_access_token)
     return data
 
 
-@app.get("/api/allaccums")
+@api_router.get("/api/allaccums")
 async def get_accums(token: str = Depends(authUtils.validate_access_token)):
     accums = fetchDBJson(
         "select accum_id, stake, total_odds, username, placed_timestamp from accums left join users on accums.user_id = users.user_id order by placed_timestamp DESC"
@@ -328,12 +317,12 @@ async def get_accums(token: str = Depends(authUtils.validate_access_token)):
     return accums_with_options
 
 
-# @app.get("/admin/allaccums")
+# @api_router.get("/admin/allaccums")
 # async def read_root() :
 #     return {"message": "Admin"}
 
 
-@app.get("/api/userAvailability/{user}")
+@api_router.get("/api/userAvailability/{user}")
 async def user_availability(user: str):
     res = fetchDB(f"select exists(select 1 from users where username = '{user}')")
     if res[0][0]:
@@ -342,7 +331,7 @@ async def user_availability(user: str):
         return {"userTaken": False}
 
 
-@app.get("/api/login/")
+@api_router.get("/api/login/")
 async def login(user, password):
     user_pass = fetchDB(
         Template(
@@ -368,7 +357,7 @@ async def login(user, password):
         return {"loggedIn": False}
 
 
-@app.get("/api/login/details")
+@api_router.get("/api/login/details")
 async def add_user(
     token: str = Depends(authUtils.validate_access_token_nowhitelist),
 ):
@@ -390,7 +379,7 @@ async def add_user(
     return res
 
 
-@app.get("/api/admin/users")
+@api_router.get("/api/admin/users")
 async def get_users(token: str = Depends(authUtils.validate_access_token)):
     if is_admin(token["user"]):
         res = fetchDBJson(
@@ -402,7 +391,7 @@ async def get_users(token: str = Depends(authUtils.validate_access_token)):
 
 
 # {category: "string", title: "string", options: [{latest_odds: number, option: "string"}]}
-@app.post("/api/admin/createbet")
+@api_router.post("/api/admin/createbet")
 async def create_bet(bet: dict, token: str = Depends(authUtils.validate_access_token)):
     # date_time_obj = datetime.datetime.strptime(
     #     bet["close_date"], "%Y-%m-%d %H:%M:%S.%f"
@@ -447,7 +436,7 @@ async def create_bet(bet: dict, token: str = Depends(authUtils.validate_access_t
         return {"settleBet": False, "errorMsg": "Du er ikke admin"}
 
 
-@app.post("/api/admin/acceptbet")
+@api_router.post("/api/admin/acceptbet")
 async def accept_bet(bet: dict, token: str = Depends(authUtils.validate_access_token)):
     if is_admin(token["user"]):
         try:
@@ -462,7 +451,7 @@ async def accept_bet(bet: dict, token: str = Depends(authUtils.validate_access_t
             raise HTTPException(status_code=403, detail="Something went wrong")
 
 
-@app.post("/api/admin/updateoption")
+@api_router.post("/api/admin/updateoption")
 async def accept_bet(
     option: dict, token: str = Depends(authUtils.validate_access_token)
 ):
@@ -486,7 +475,7 @@ async def accept_bet(
             raise HTTPException(status_code=403, detail="Something went wrong")
 
 
-@app.post("/api/admin/addoption")
+@api_router.post("/api/admin/addoption")
 async def accept_bet(
     option: dict, token: str = Depends(authUtils.validate_access_token)
 ):
@@ -510,7 +499,7 @@ async def accept_bet(
             raise HTTPException(status_code=403, detail="Something went wrong")
 
 
-@app.post("/api/admin/updatewl")
+@api_router.post("/api/admin/updatewl")
 async def accept_bet(
     payload: dict, token: str = Depends(authUtils.validate_access_token)
 ):
@@ -529,7 +518,7 @@ async def accept_bet(
             raise HTTPException(status_code=403, detail="Something went wrong")
 
 
-@app.post("/api/admin/closebet")
+@api_router.post("/api/admin/closebet")
 async def accept_bet(bet: dict, token: str = Depends(authUtils.validate_access_token)):
     if is_admin(token["user"]):
         try:
@@ -544,7 +533,7 @@ async def accept_bet(bet: dict, token: str = Depends(authUtils.validate_access_t
             raise HTTPException(status_code=403, detail="Something went wrong")
 
 
-@app.post("/api/admin/resetPassword")
+@api_router.post("/api/admin/resetPassword")
 async def reset_password(
     payload: dict, token: str = Depends(authUtils.validate_access_token)
 ):
@@ -571,7 +560,7 @@ async def reset_password(
             )
 
 
-@app.post("/api/resetPassword")
+@api_router.post("/api/resetPassword")
 async def reset_password(
     payload: dict, token: str = Depends(authUtils.validate_access_token_nowhitelist)
 ):
@@ -595,7 +584,7 @@ async def reset_password(
         )
 
 
-@app.post("/api/requestbet")
+@api_router.post("/api/requestbet")
 async def create_bet(bet: dict, token: str = Depends(authUtils.validate_access_token)):
     # date_time_obj = datetime.datetime.strptime(
     #     bet["close_date"], "%Y-%m-%d %H:%M:%S.%f"
@@ -639,7 +628,7 @@ async def create_bet(bet: dict, token: str = Depends(authUtils.validate_access_t
         return {"requestBet": False, "errorMsg": e}
 
 
-@app.post("/api/admin/settlebet")
+@api_router.post("/api/admin/settlebet")
 async def settle_bet(bet: dict, token: str = Depends(authUtils.validate_access_token)):
     if is_admin(token["user"]):
         # settle bet
@@ -714,7 +703,7 @@ async def settle_bet(bet: dict, token: str = Depends(authUtils.validate_access_t
         return {"settleBet": False, "errorMsg": "Du er ikke admin"}
 
 
-@app.post("/api/placebet")
+@api_router.post("/api/placebet")
 async def place_bet(bet: dict, token: str = Depends(authUtils.validate_access_token)):
     res = fetchDBJson(
         Template(
@@ -763,7 +752,7 @@ async def place_bet(bet: dict, token: str = Depends(authUtils.validate_access_to
     return {"placeBet": True}
 
 
-@app.post("/api/createUser")
+@api_router.post("/api/createUser")
 async def add_user(user: dict):
     # hashed = authUtils.create_hashed_password(user["password"])
     hashed = bcrypt.hashpw(bytes(user["password"], encoding="utf-8"), bcrypt.gensalt())
@@ -782,7 +771,7 @@ async def add_user(user: dict):
     return {"userCreated": True}
 
 
-@app.post("/api/updatePassword")
+@api_router.post("/api/updatePassword")
 async def update_password(
     payload: dict, token: str = Depends(authUtils.validate_access_token)
 ):
@@ -836,7 +825,7 @@ class PlayerScoreCreate(BaseModel):
     stand: bool
 
 
-@app.post("/api/bonde/adduser")
+@api_router.post("/api/bonde/adduser")
 async def add_player(player: dict):
     cursor = connection.cursor()
     try:
@@ -858,7 +847,7 @@ async def add_player(player: dict):
     return {"addUser": True}
 
 
-@app.get("/api/bonde/games")
+@api_router.get("/api/bonde/games")
 async def get_users():
     # try:
     query = "SELECT * FROM games ORDER BY game_id DESC;"
@@ -886,7 +875,7 @@ async def get_users():
     return {"games": games}
 
 
-@app.get("/api/bonde/game/{game_id}")
+@api_router.get("/api/bonde/game/{game_id}")
 async def get_game(game_id: int):
     query = "SELECT * FROM games WHERE game_id = %s;"
     game = fetchDBJsonNew(query, (game_id,))
@@ -912,7 +901,7 @@ async def get_game(game_id: int):
     return {"game": game, "rounds": rounds, "players": players}
 
 
-@app.get("/api/bonde/users")
+@api_router.get("/api/bonde/users")
 async def get_users():
     try:
         query = "SELECT player_id, nickname FROM bonde_users;"
@@ -924,7 +913,7 @@ async def get_users():
     return {"users": users}
 
 
-@app.post("/api/bonde/game")
+@api_router.post("/api/bonde/game")
 async def create_game(game: GameCreate):
     # try:
     cursor = connection.cursor()
@@ -954,7 +943,7 @@ async def create_game(game: GameCreate):
     }
 
 
-@app.post("/api/bonde/rounds")
+@api_router.post("/api/bonde/rounds")
 async def create_rounds(rounds: dict):
     try:
         cursor = connection.cursor()
@@ -989,7 +978,7 @@ async def create_rounds(rounds: dict):
     return {"created": True}
 
 
-@app.put("/api/bonde/rounds")
+@api_router.put("/api/bonde/rounds")
 async def update_round(data: dict):
     # Connect to the database
     # try:
@@ -1026,7 +1015,7 @@ async def update_round(data: dict):
     return {"message": "Round updated successfully"}
 
 
-@app.put("/api/bonde/playerdata")
+@api_router.put("/api/bonde/playerdata")
 async def update_player_scores(data: dict):
     # Connect to the database
     # try:
@@ -1054,7 +1043,7 @@ async def update_player_scores(data: dict):
     return {"message": "Player scores updated successfully"}
 
 
-@app.put("/api/game/complete/{game_id}")
+@api_router.put("/api/game/complete/{game_id}")
 async def update_round(game_id: int):
     # Connect to the database
     try:

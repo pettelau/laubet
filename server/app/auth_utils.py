@@ -6,9 +6,9 @@ from jose.exceptions import JOSEError
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import bcrypt
-from .credentials import Credentials
+from credentials import Credentials
 import psycopg2
-from .postgresPool import pool
+from postgresPool import pool
 from string import Template
 from psycopg2.extras import RealDictCursor
 
