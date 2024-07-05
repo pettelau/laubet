@@ -20,7 +20,6 @@ import HomeIcon from "@mui/icons-material/Home";
 import PersonIcon from "@mui/icons-material/Person";
 import LocalAtmIcon from "@mui/icons-material/LocalAtm";
 import ReceiptIcon from "@mui/icons-material/Receipt";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import PaidIcon from "@mui/icons-material/Paid";
 import MenuIcon from "@mui/icons-material/Menu";
 import ScheduleSendIcon from "@mui/icons-material/ScheduleSend";
@@ -28,6 +27,7 @@ import LeaderboardIcon from "@mui/icons-material/Leaderboard";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import DynamicFeedIcon from "@mui/icons-material/DynamicFeed";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
+import InterestsIcon from '@mui/icons-material/Interests';
 
 import Tooltip from "@mui/material/Tooltip";
 import { useAppSelector } from "../redux/hooks";
@@ -187,12 +187,12 @@ export default function AppAppBar() {
                 color="inherit"
                 sx={{ mr: 2, display: "flex", flexDirection: "row" }}
                 onClick={() => {
-                  navigate("/competition");
+                  navigate("/bondebridge");
                 }}
               >
-                <DynamicFeedIcon />
+                <InterestsIcon />
                 <Typography sx={{ color: "white", marginLeft: 1 }}>
-                  Konkurranse!
+                  Bondebridge
                 </Typography>
               </IconButton>
             </Box>
@@ -366,11 +366,11 @@ export default function AppAppBar() {
                 <MenuItem
                   onClick={() => {
                     setAnchorEl(null);
-                    navigate("/competition");
+                    navigate("/bondebridge");
                   }}
                 >
-                  <EmojiEventsIcon sx={{ mr: 1 }} />
-                  Konkurranse
+                  <InterestsIcon sx={{ mr: 1 }} />
+                  Bondebridge
                 </MenuItem>
               </Menu>
               {/* <IconButton

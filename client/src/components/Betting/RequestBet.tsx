@@ -212,7 +212,6 @@ export default function RequestBet() {
             <DateTimePicker
               value={closeDate}
               onChange={(newValue) => setCloseDate(newValue)}
-              renderInput={(params) => <TextField {...params} />}
               ampm={false}
             />
           </LocalizationProvider>

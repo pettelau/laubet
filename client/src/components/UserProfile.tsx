@@ -138,8 +138,6 @@ export default function UserProfile() {
     return <NoAccess responseCode={responseCode} responseText={responseText} />;
   }
   if (publicUserData) {
-    console.log("Er her ");
-    console.log(publicUserData[0]["firstname"]);
     return (
       <>
         <h2>{username} sine kuponger</h2>

@@ -57,7 +57,6 @@ class AuthUtils:
         self,
         credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     ):
-        print("i am here")
         token = credentials.credentials
         try:
             payload = jwt.decode(
@@ -69,7 +68,6 @@ class AuthUtils:
                     "select whitelist from users where username = '$username'"
                 ).safe_substitute({"username": payload["user"]})
             )
-            print(res[0])
             if res[0]["whitelist"]:
                 return payload
             else:

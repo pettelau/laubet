@@ -40,8 +40,7 @@ export default function Competition() {
     });
 
     const resp = await response.json();
-    console.log(statusUser);
-    console.log(USERNAME);
+
     if (response.status == 200) {
       setCompetition(resp);
       resp.forEach((user: CompetitionT) => {
@@ -52,7 +51,6 @@ export default function Competition() {
     } else {
       setResponseText(resp.detail);
     }
-    console.log(statusUser);
 
     setResponseCode(response.status);
   }

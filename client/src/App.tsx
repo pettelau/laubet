@@ -1,6 +1,9 @@
 import React from "react";
 import "./App.css";
-import { HashRouter as Router, Routes, Route } from "react-router-dom";
+// import { HashRouter as Router, Routes, Route } from "react-router-dom";
+
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+
 import Home from "./components/Home";
 // import Login from "./components/Login";
 import NavBar from "./components/Nav";
@@ -71,7 +74,6 @@ export default function App() {
 
   useEffect(() => {
     if (localStorage.getItem("jwt") !== "") {
-      console.log("Her");
       loginDetails();
     }
   }, []);
@@ -80,7 +82,7 @@ export default function App() {
       <CssBaseline />
       <Provider store={store}>
         <div className="App">
-          <Router>
+          <BrowserRouter>
             <AppAppBar />
             <Routes>
               <Route path="/" element={<Home />} />
@@ -100,7 +102,7 @@ export default function App() {
               <Route path="admin/newbet" element={<NewBet />} />
               <Route path="admin/editbet" element={<EditBet />} />
             </Routes>
-          </Router>
+          </BrowserRouter>
           <Accumulator />
         </div>
       </Provider>

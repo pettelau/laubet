@@ -14,6 +14,7 @@ import {
   Select,
   SelectChangeEvent,
   Stack,
+  Switch,
   TextField,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
@@ -37,10 +38,14 @@ import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import Alert from "@mui/material/Alert";
 import { IconButton } from "@mui/material";
-import { InfoOutlined, Person } from "@mui/icons-material";
+import { InfoOutlined, Person, EditAttributes } from "@mui/icons-material";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import EditIcon from "@mui/icons-material/Edit";
 
 import { useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import PlayerCard from "./PlayerCard";
+import { BleedingsTable } from "./StatsCharts";
 
 const style = {
   position: "absolute" as "absolute",
@@ -55,6 +60,7 @@ const style = {
 };
 
 export default function BondeBridge() {
+  const navigate = useNavigate();
   const params = useParams();
   const GAME_ID = params.game_id;
 
@@ -66,6 +72,9 @@ export default function BondeBridge() {
   const [infoModalOpen, setInfoModalOpen] = React.useState<boolean>(false);
   const handleInfoClose = () => setInfoModalOpen(false);
 
+  const [editModalOpen, setEditModalOpen] = React.useState<boolean>(false);
+  const handleEditClose = () => setEditModalOpen(false);
+
   const [newPlayerModalOpen, setNewPlayerModalOpen] =
     React.useState<boolean>(false);
   const handleNewPlayerClose = () => setNewPlayerModalOpen(false);
@@ -75,17 +84,9 @@ export default function BondeBridge() {
 
   const [currentGame, setCurrentGame] = useState<Game>();
 
-  const [moneyMultiplier, setMoneyMultiplier] = useState<number>(2);
-  const [extraCostLoser, setExtraCostLoser] = useState<number>(100);
-  const [extraCostSecondLast, setExtraCostSecondLast] = useState<number>(50);
-
-  const [underbid, setUnderbid] = useState<number>(0);
-  const [overbid, setOverbid] = useState<number>(0);
-  const [correctbid, setCorrectbid] = useState<number>(0);
-
   const [reBitState, setReBidState] = useState<boolean>(false);
 
-  const [users, setUsers] = useState<BondeUser[]>([]);
+  const [blueberryMode, setBlueberryMode] = useState<boolean>(false);
 
   const [players, setPlayers] = useState<Player[]>([]);
 
@@ -98,46 +99,80 @@ export default function BondeBridge() {
   const [currentRoundIndex, setCurrentRoundIndex] = useState<number>(0);
   const [dealerIndex, setDealerIndex] = useState<number>(0);
 
+  const [selectedRoundIndex, setSelectedRoundIndex] = useState<number | null>(
+    null
+  );
+
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
   const [invalidTricksAlertOpen, setInvalidTricksAlertOpen] =
     useState<boolean>(false);
+
+  // Initialize trickInputs state
+  const [trickInputs, setTrickInputs] = useState<string[]>([]);
+
+  // Update trickInputs when selectedRoundIndex changes
+  useEffect(() => {
+    if (selectedRoundIndex !== null) {
+      setTrickInputs(
+        rounds[selectedRoundIndex].player_scores.map((ps) =>
+          ps.num_tricks !== null ? ps.num_tricks.toString() : ""
+        )
+      );
+    }
+  }, [selectedRoundIndex, rounds]);
+
+  // Handle input change
+  const handleInputChange = (value: string, playerIndex: number) => {
+    const newTrickInputs = [...trickInputs];
+    newTrickInputs[playerIndex] = value;
+    setTrickInputs(newTrickInputs);
+
+    // Call handleTrickChange with 0 if the input is empty, otherwise with the number
+    handleTrickChange(
+      value === "" ? 0 : Number(value),
+      selectedRoundIndex as number, // TypeScript cast since we check for null before
+      playerIndex
+    );
+  };
+
+  const updateWarningsForPlayer = (playerId: number, increment: boolean) => {
+    setPlayers((prevPlayers) =>
+      prevPlayers.map((player) =>
+        player.player_id === playerId
+          ? {
+              ...player,
+              warnings: increment
+                ? player.warnings + 1
+                : Math.max(player.warnings - 1, 0),
+            }
+          : player
+      )
+    );
+  };
+
+  const updateBleedingsForPlayer = (playerId: number, increment: boolean) => {
+    setPlayers((prevPlayers) =>
+      prevPlayers.map((player) =>
+        player.player_id === playerId
+          ? {
+              ...player,
+              bleedings: increment
+                ? player.bleedings + 1
+                : Math.max(player.bleedings - 1, 0),
+            }
+          : player
+      )
+    );
+  };
 
   // const NUMBER_OF_ROUNDS = 3;
   const NUMBER_OF_ROUNDS = Math.floor(52 / players.length);
 
   const [error, setError] = useState<null | string>(null);
 
-  const pie_data = {
-    labels: ["Underbid", "Overbid", "Correct"],
-    datasets: [
-      {
-        data: returnPieData(),
-        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56"],
-        hoverBackgroundColor: ["#FF6384", "#36A2EB", "#FFCE56"],
-      },
-    ],
+  const handleRoundSelectChange = (event: SelectChangeEvent<number | null>) => {
+    setSelectedRoundIndex(event.target.value as number);
   };
-
-  const options = {
-    maxWidth: 400,
-  };
-
-  function returnPieData() {
-    const data = [];
-    data.push((underbid / currentRoundIndex + 1) * 100);
-    data.push((overbid / currentRoundIndex + 1) * 100);
-    data.push((correctbid / currentRoundIndex + 1) * 100);
-    return data;
-  }
-
-  function returnMenuItems(tricks: number) {
-    const menuItems = [];
-    menuItems.push(<MenuItem value={undefined}>Ikke valgt</MenuItem>);
-    for (let i = 0; i <= tricks; i++) {
-      menuItems.push(<MenuItem value={i}>{i}</MenuItem>);
-    }
-    return menuItems;
-  }
 
   function handleTrickChange(
     newNumTricks: string | number | null,
@@ -171,20 +206,24 @@ export default function BondeBridge() {
     });
   }
 
-  function handleStandChange(newStandStatus: boolean, playerIndex: number) {
+  function handleStandChange(
+    newStandStatus: boolean,
+    roundIndex: number,
+    playerIndex: number
+  ) {
     setRounds((prevRounds) => {
       const newRounds = [...prevRounds];
       const updatedPlayerStatus = {
-        ...newRounds[currentRoundIndex].player_scores[playerIndex],
+        ...newRounds[roundIndex].player_scores[playerIndex],
         stand: newStandStatus,
       };
       const updatedPlayerStatuses = [
-        ...newRounds[currentRoundIndex].player_scores.slice(0, playerIndex),
+        ...newRounds[roundIndex].player_scores.slice(0, playerIndex),
         updatedPlayerStatus,
-        ...newRounds[currentRoundIndex].player_scores.slice(playerIndex + 1),
+        ...newRounds[roundIndex].player_scores.slice(playerIndex + 1),
       ];
-      newRounds[currentRoundIndex] = {
-        ...newRounds[currentRoundIndex],
+      newRounds[roundIndex] = {
+        ...newRounds[roundIndex],
         player_scores: updatedPlayerStatuses,
       };
       return newRounds;
@@ -208,7 +247,6 @@ export default function BondeBridge() {
       if (score.num_tricks) totalTrickSum += score.num_tricks;
     });
     if (totalTrickSum === modRound.num_cards) {
-      setCorrectbid((prev) => prev + 1);
       setReBidState(true);
       alert("Dealer må gå opp eller ned");
       return;
@@ -219,11 +257,6 @@ export default function BondeBridge() {
         newRounds[currentRoundIndex] = modRound; // Update the round at the current index
         return newRounds;
       });
-      if (totalTrickSum < modRound.num_cards) {
-        setUnderbid((prev) => prev + 1);
-      } else if (totalTrickSum > modRound.num_cards) {
-        setOverbid((prev) => prev + 1);
-      }
     }
 
     // } else {
@@ -234,7 +267,7 @@ export default function BondeBridge() {
   function handleNextRound() {
     for (let i = 0; i < players.length; i++) {
       if (rounds[currentRoundIndex].player_scores[i].stand === null) {
-        handleStandChange(false, i);
+        handleStandChange(false, currentRoundIndex, i);
       }
     }
     setReBidState(false);
@@ -247,7 +280,7 @@ export default function BondeBridge() {
         setShowGif(false);
       }, 5000);
     }
-    if (currentRoundIndex + 1 < NUMBER_OF_ROUNDS * 2 - 2) {
+    if (currentRoundIndex + 1 < rounds.length) {
       setCurrentRoundIndex((prev) => prev + 1);
     } else {
       if (currentGame) {
@@ -285,6 +318,9 @@ export default function BondeBridge() {
       let consecutiveFails = 0;
       let consecutiveStands = 0;
       for (let j = 0; j <= currentRoundIndex; j++) {
+        if (sortedRounds[j].player_scores[i].stand === null) {
+          break;
+        }
         if (sortedRounds[j].player_scores[i].stand) {
           playerScore +=
             10 +
@@ -340,7 +376,13 @@ export default function BondeBridge() {
         const newPlayers = [...prev];
         newPlayers.sort((a, b) => a.game_player_id - b.game_player_id)[
           i
-        ].score = playerScore;
+        ].score =
+          playerScore -
+          Math.floor(
+            newPlayers.sort((a, b) => a.game_player_id - b.game_player_id)[i]
+              .warnings / 2
+          ) *
+            10;
         return newPlayers;
       });
     }
@@ -355,8 +397,11 @@ export default function BondeBridge() {
 
     let loopTo = halfway
       ? Math.min(currentRoundIndex, sortedRounds.length / 2)
-      : currentRoundIndex+1;
+      : currentRoundIndex + 1;
     for (let j = 0; j < loopTo; j++) {
+      if (sortedRounds[j].player_scores[i].stand === null) {
+        break;
+      }
       if (sortedRounds[j].player_scores[i].stand) {
         playerScore +=
           10 + Math.pow(Number(sortedRounds[j].player_scores[i].num_tricks), 2);
@@ -383,6 +428,13 @@ export default function BondeBridge() {
         playerScore += 30;
       }
     }
+    playerScore =
+      playerScore -
+      Math.floor(
+        players.sort((a, b) => a.game_player_id - b.game_player_id)[i]
+          .warnings / 2
+      ) *
+        10;
     return playerScore;
   }
 
@@ -450,6 +502,20 @@ export default function BondeBridge() {
     fetchGame();
   }, []);
 
+  function getPlayerEarnings(place: number) {
+    if (place === 0) {
+      return prizes?.winnerPrize;
+    } else if (place === 1) {
+      return prizes?.secondPrize;
+    } else if (place === players.length - 2) {
+      return prizes?.secondPrize ? -prizes.secondPrize : undefined;
+    } else if (place === players.length - 1) {
+      return prizes?.winnerPrize ? -prizes.winnerPrize : undefined;
+    } else {
+      return undefined;
+    }
+  }
+
   useEffect(() => {
     calcScores();
     if (rounds[currentRoundIndex] !== undefined) {
@@ -488,6 +554,7 @@ export default function BondeBridge() {
   useEffect(() => {
     if (currentGame) {
       calcMoneyPrizes();
+      updatePlayerScores();
     }
   }, [players]);
   // useEffect(() => {
@@ -627,20 +694,9 @@ export default function BondeBridge() {
     return consecutiveStands;
   };
 
-  // Calculate node positions, elements, etc based on your game data
-  const playersNodes = players.map((player, index) => ({
-    id: player.player_id.toString(),
-    type: "input", // You can use different node types or custom types for styling
-    data: { label: `${player.nickname} - ${player.score} poeng` },
-    position: {
-      x: 150 * Math.cos((2 * Math.PI * index) / players.length),
-      y: 150 * Math.sin((2 * Math.PI * index) / players.length),
-    },
-  }));
-
   return (
     <>
-      <div id="rules">
+      <div id="rules" style={{ marginBottom: "70px" }}>
         {rounds[0] === undefined ? (
           <>Henter runde ...</>
         ) : (
@@ -648,28 +704,181 @@ export default function BondeBridge() {
             {showGif && (
               <div className="modalOverlay">
                 <img
-                  src={`/bm2.gif`}
-                  // src={`/bm${Math.floor(Math.random() * 17) + 1}.gif`}
+                  src={`/bm${Math.floor(Math.random() * 17) + 1}.gif`}
                   alt="Description of GIF"
                 />
               </div>
             )}
             <br />
-            <TableContainer sx={{ marginBottom: 8 }} component={Paper}>
-              <Table sx={{}} aria-label="simple table">
+            <div
+              style={{
+                height: "90vh",
+                overflow: "scroll",
+                marginBottom: "25px",
+              }}
+            >
+              <Table aria-label="simple table">
                 <TableHead>
                   <TableRow>
+                    <TableCell></TableCell>
+                    {players
+                      .sort((a, b) => a.game_player_id - b.game_player_id)
+                      .map((player: Player) => {
+                        return (
+                          <>
+                            <TableCell align="center" sx={{ padding: 0.5 }}>
+                              <span
+                                onClick={() =>
+                                  updateWarningsForPlayer(
+                                    player.player_id,
+                                    true
+                                  )
+                                }
+                                style={{
+                                  cursor: "pointer",
+                                  border: "1px solid #F96B03",
+                                  display: "inline-block",
+                                  backgroundColor: "orange",
+                                  color: "white",
+                                  borderRadius: "5px",
+                                  padding: "2px 4px",
+                                  margin: "2px",
+                                  fontWeight: "bold",
+                                  fontSize: "12px",
+                                  marginRight: "10px",
+                                }}
+                              >
+                                W +
+                              </span>
+                              <span
+                                onClick={() =>
+                                  updateBleedingsForPlayer(
+                                    player.player_id,
+                                    true
+                                  )
+                                }
+                                style={{
+                                  cursor: "pointer",
+                                  border: "1px solid red",
+                                  display: "inline-block",
+                                  backgroundColor: "#ffcccc",
+                                  color: "red",
+                                  borderRadius: "5px",
+                                  padding: "2px 4px",
+                                  margin: "2px",
+                                  fontWeight: "bold",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                🩸 +
+                              </span>
+                            </TableCell>
+                          </>
+                        );
+                      })}
+                    <TableCell colSpan={2}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-end",
+                          paddingRight: "0px",
+                        }}
+                      >
+                        <img
+                          height="30"
+                          src="/blueberry.png"
+                          alt="Blueberry"
+                          style={{
+                            filter: blueberryMode ? "none" : "grayscale(100%)",
+                          }}
+                        />
+                        <Switch
+                          style={{ marginRight: "5px" }}
+                          checked={blueberryMode}
+                          onChange={() => {
+                            setBlueberryMode((prev) => !prev);
+                          }}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow
+                    sx={{
+                      position: "sticky",
+                      top: "-1px",
+                      zIndex: 1,
+                      backgroundColor: "white",
+                    }}
+                  >
                     <>
                       <TableCell>
-                        <b>#Kort</b>
+                        <b>#</b>
                       </TableCell>
                       {players
                         .sort((a, b) => a.game_player_id - b.game_player_id)
                         .map((player: Player) => {
                           return (
                             <>
-                              <TableCell align="center">
+                              <TableCell align="center" sx={{ padding: 0.5 }}>
                                 <b>{player.nickname}</b>
+                                {player.bleedings > 0 || player.warnings > 0 ? (
+                                  <>
+                                    {Array.from({
+                                      length: player.warnings,
+                                    }).map((_, index) => (
+                                      <span
+                                        onClick={() =>
+                                          updateWarningsForPlayer(
+                                            player.player_id,
+                                            false
+                                          )
+                                        }
+                                        key={index}
+                                        style={{
+                                          display: "inline-block",
+                                          backgroundColor: "orange",
+                                          color: "white",
+                                          borderRadius: "5px", // Adjust for more or less rounded corners
+                                          padding: "0px 2px", // Adjust padding to your preference
+                                          margin: "2px", // Adjust for spacing between boxes
+                                          fontWeight: "bold",
+                                          fontSize: "10px", // Adjust font size as needed
+                                        }}
+                                      >
+                                        W
+                                      </span>
+                                    ))}
+                                    {Array.from({
+                                      length: player.bleedings,
+                                    }).map((_, index) => (
+                                      <span
+                                        onClick={() =>
+                                          updateBleedingsForPlayer(
+                                            player.player_id,
+                                            false
+                                          )
+                                        }
+                                        key={index}
+                                        style={{
+                                          border: "1px solid red",
+                                          display: "inline-block",
+                                          backgroundColor: "#ffcccc",
+                                          color: "white",
+                                          borderRadius: "5px", // Adjust for more or less rounded corners
+                                          padding: "0px 2px", // Adjust padding to your preference
+                                          margin: "2px", // Adjust for spacing between boxes
+                                          fontWeight: "bold",
+                                          fontSize: "10px", // Adjust font size as needed
+                                        }}
+                                      >
+                                        🩸
+                                      </span>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <></>
+                                )}
                               </TableCell>
                             </>
                           );
@@ -691,8 +900,16 @@ export default function BondeBridge() {
                         <InfoOutlined />
                       </IconButton>
                     </TableCell>
-                    <TableCell>
-                      <b>D</b>
+                    <TableCell align="left" sx={{ padding: 0.5 }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setEditModalOpen(true);
+                        }}
+                        aria-label="edit"
+                      >
+                        <EditIcon />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 </TableHead>
@@ -724,37 +941,17 @@ export default function BondeBridge() {
                                   <TableCell
                                     align="center"
                                     sx={{
-                                      width: 500,
-                                      // backgroundColor:
-                                      //   score.stand === false ? "#ff9d96" : "",
-                                      backgroundColor: backgroundColor,
+                                      height: 53,
+                                      padding: 0,
+                                      width: 300,
+                                      backgroundColor:
+                                        blueberryMode && !score.stand
+                                          ? "white"
+                                          : backgroundColor,
                                     }}
                                   >
                                     {currentRoundIndex === roundIndex &&
                                     currentGame?.status !== "finished" ? (
-                                      // <Select
-                                      //   sx={{ width: 61 }}
-                                      //   size="small"
-                                      //   disabled={
-                                      //     round.locked ||
-                                      //     (reBitState &&
-                                      //       round.dealer_index !== playerIndex)
-                                      //   }
-                                      //   value={
-                                      //     rounds[roundIndex].player_scores[
-                                      //       playerIndex
-                                      //     ].num_tricks
-                                      //   }
-                                      //   onChange={(event) =>
-                                      //     handleTrickChange(
-                                      //       event?.target.value,
-                                      //       roundIndex,
-                                      //       playerIndex
-                                      //     )
-                                      //   }
-                                      // >
-                                      //   {returnMenuItems(round.num_cards)}
-                                      // </Select>
                                       <div>
                                         <button
                                           id="button-bonde"
@@ -796,47 +993,17 @@ export default function BondeBridge() {
                                           +
                                         </button>
                                       </div>
-                                    ) : // <div>
-                                    //   <button
-                                    //     disabled={
-                                    //       round.locked ||
-                                    //       (reBitState &&
-                                    //         round.dealer_index !==
-                                    //           playerIndex) ||
-                                    //       numTricks <= 0
-                                    //     }
-                                    //     onClick={() =>
-                                    //       handleTrickChange(
-                                    //         numTricks - 1,
-                                    //         roundIndex,
-                                    //         playerIndex
-                                    //       )
-                                    //     }
-                                    //   >
-                                    //     -
-                                    //   </button>
-                                    //   <span>{numTricks}</span>
-                                    //   <button
-                                    //     disabled={
-                                    //       round.locked ||
-                                    //       (reBitState &&
-                                    //         round.dealer_index !==
-                                    //           playerIndex) ||
-                                    //       numTricks >= round.num_cards
-                                    //     }
-                                    //     onClick={() =>
-                                    //       handleTrickChange(
-                                    //         numTricks + 1,
-                                    //         roundIndex,
-                                    //         playerIndex
-                                    //       )
-                                    //     }
-                                    //   >
-                                    //     +
-                                    //   </button>
-                                    // </div>
-                                    score.num_tricks !== null ? (
-                                      10 + Math.pow(score.num_tricks, 2)
+                                    ) : score.num_tricks !== null ? (
+                                      blueberryMode && !score.stand ? (
+                                        <img
+                                          height={43}
+                                          src="/blueberry.png"
+                                          alt="Blueberry"
+                                          style={{ marginTop: "4px" }}
+                                        />
+                                      ) : (
+                                        10 + Math.pow(score.num_tricks, 2)
+                                      )
                                     ) : (
                                       ""
                                     )}
@@ -850,7 +1017,7 @@ export default function BondeBridge() {
                             <>
                               <TableCell
                                 sx={{
-                                  width: 50,
+                                  width: 100,
                                   margin: "auto",
                                 }}
                               >
@@ -871,7 +1038,6 @@ export default function BondeBridge() {
                                       >
                                         ✅
                                       </IconButton>
-                                      <br />
                                       <IconButton
                                         onClick={() => {
                                           handleLockRound(round);
@@ -879,6 +1045,48 @@ export default function BondeBridge() {
                                       >
                                         ↩️
                                       </IconButton>
+                                      {round.player_scores.reduce(
+                                        (total, playerScore) =>
+                                          total + (playerScore.num_tricks || 0),
+                                        0
+                                      ) > round.num_cards ? (
+                                        <div
+                                          style={{
+                                            backgroundColor:
+                                              "rgba(255, 178, 64, 0.7)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "right",
+                                          }}
+                                        >
+                                          {round.player_scores.reduce(
+                                            (total, playerScore) =>
+                                              total +
+                                              (playerScore.num_tricks || 0),
+                                            0
+                                          ) - round.num_cards}{" "}
+                                          ⬆
+                                        </div>
+                                      ) : (
+                                        <div
+                                          style={{
+                                            backgroundColor:
+                                              "rgba(173, 216, 230, 0.7)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "right",
+                                          }}
+                                        >
+                                          {round.num_cards -
+                                            round.player_scores.reduce(
+                                              (total, playerScore) =>
+                                                total +
+                                                (playerScore.num_tricks || 0),
+                                              0
+                                            )}{" "}
+                                          ⬇
+                                        </div>
+                                      )}
                                     </div>
                                   </>
                                 ) : (
@@ -954,7 +1162,7 @@ export default function BondeBridge() {
                             ].nickname[0].toUpperCase()}
                           </TableCell>
                         </TableRow>
-                        {roundIndex + 3 === NUMBER_OF_ROUNDS * 2 ? (
+                        {roundIndex + 1 === rounds.length ? (
                           <>
                             <TableRow
                               sx={{
@@ -974,12 +1182,14 @@ export default function BondeBridge() {
                                   </>
                                 );
                               })}
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
                             </TableRow>
                           </>
                         ) : (
                           ""
                         )}
-                        {roundIndex + 2 === NUMBER_OF_ROUNDS ? (
+                        {roundIndex + 1 === rounds.length / 2 ? (
                           <>
                             <TableRow
                               sx={{
@@ -999,6 +1209,8 @@ export default function BondeBridge() {
                                   </>
                                 );
                               })}
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
                             </TableRow>
                           </>
                         ) : (
@@ -1009,16 +1221,28 @@ export default function BondeBridge() {
                   })}
                 </TableBody>
               </Table>
-            </TableContainer>
+            </div>
             {currentGame?.status === "finished" ? (
-              <Button
-                variant="contained"
-                onClick={() => {
-                  setFinalModalOpen(true);
-                }}
-              >
-                Se resultat
-              </Button>
+              <>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    setFinalModalOpen(true);
+                  }}
+                >
+                  Se resultat
+                </Button>
+                <br />
+                <br />
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    navigate("/bondebridge");
+                  }}
+                >
+                  Tilbake til meny
+                </Button>
+              </>
             ) : (
               ""
             )}
@@ -1036,20 +1260,27 @@ export default function BondeBridge() {
                       (player: PlayerScore, index: number) => {
                         return (
                           <>
-                            <Checkbox
-                              checked={!!player.stand}
-                              onChange={(event) => {
-                                handleStandChange(event.target.checked, index);
-                              }}
-                            />{" "}
-                            <b>
-                              {
-                                players.sort(
-                                  (a, b) => a.game_player_id - b.game_player_id
-                                )[index].nickname
-                              }
-                            </b>
-                            <br />
+                            <div style={{ marginBottom: "10px" }}>
+                              <Checkbox
+                                checked={!!player.stand}
+                                onChange={(event) => {
+                                  handleStandChange(
+                                    event.target.checked,
+                                    currentRoundIndex,
+                                    index
+                                  );
+                                }}
+                              />{" "}
+                              <b>
+                                {
+                                  players.sort(
+                                    (a, b) =>
+                                      a.game_player_id - b.game_player_id
+                                  )[index].nickname
+                                }
+                              </b>
+                              <br />
+                            </div>
                           </>
                         );
                       }
@@ -1100,73 +1331,36 @@ export default function BondeBridge() {
           </Box>
         </Modal>
         <Modal open={infoModalOpen} onClose={handleInfoClose}>
-          <div id="rules">
+          <div id="result-modal">
             <br />
-            Differanse ganges med <b>{currentGame?.money_multiplier}</b>
-            <br />
-            <br />
-            Sum fra {players.length} plass til 1. plass:{" "}
-            <b>{currentGame?.extra_cost_loser} kr</b>
-            <br />
-            <br />
-            {currentGame?.extra_cost_second_last ? (
-              <>
-                Sum fra {players.length - 1} til 2. plass:{" "}
-                <b>{currentGame.extra_cost_second_last} kr</b>
-              </>
-            ) : (
-              ""
-            )}
-            <br />
-            <br />
-            Spillet ble opprettet:{" "}
-            <b>
-              {currentGame?.created_on
-                ? new Date(currentGame.created_on).toDateString() +
-                  " " +
-                  new Date(currentGame.created_on).getHours() +
-                  ":" +
-                  new Date(currentGame.created_on).getMinutes()
-                : ""}
-            </b>
-            <br />
-            <br />
-            <b>SPILLERE:</b> <br />
-            {players.map((player: Player, index: number) => {
-              return (
-                <>
-                  {player.nickname}
-                  {index + 1 < players.length ? ", " : ""}
-                </>
-              );
-            })}
-            <br />
-            <br />
-            <br />
-            <br />
-            <b>PREMIER FOR ØYEBLIKKET:</b>
-            <br />
-            Vinner: <b>{prizes?.winner}</b>
-            <br />
-            Taper: <b>{prizes?.loser}</b>
-            <br />
-            Taper til vinner: <b>{prizes?.winnerPrize} kr</b>
-            <br />
-            {prizes?.second ? (
-              <>
-                2. plass: <b>{prizes.second}</b>
-                <br />
-                {players.length - 1}. plass: <b>{prizes.secondLoser}</b>
-                <br />
-                {players.length - 1}. plass til 2. plass:{" "}
-                <b>{prizes.secondPrize} kr</b>
-                <br />
-              </>
-            ) : (
-              ""
-            )}
-            <br />
+            Diff x <b>{currentGame?.money_multiplier}</b> | Sisteplass:{" "}
+            <b>+ {currentGame?.extra_cost_loser} kr</b> | Nest sist:{" "}
+            <b>+ {currentGame?.extra_cost_second_last} kr</b>
+            <h2>Foreløpig score:</h2>
+            {players
+              .sort((a, b) => b.score - a.score)
+              .map((player: Player, index: number) => {
+                return (
+                  <>
+                    <PlayerCard
+                      position={index + 1}
+                      name={player.nickname}
+                      score={player.score}
+                      // score={calcHalfwayScores(index, false)}
+                      earnings={getPlayerEarnings(index)}
+                      diff_down={
+                        index < players.length - 1
+                          ? player.score -
+                            players.sort((a, b) => b.score - a.score)[index + 1]
+                              .score
+                          : undefined
+                      }
+                    />
+                  </>
+                );
+              })}
             <Button
+              sx={{ marginTop: "20px" }}
               variant="contained"
               onClick={() => {
                 setInfoModalOpen(false);
@@ -1177,64 +1371,104 @@ export default function BondeBridge() {
           </div>
         </Modal>
 
+        <Modal open={editModalOpen} onClose={handleEditClose}>
+          <div id="rules" style={{ paddingTop: 10 }}>
+            <h2>Endre score</h2>
+            Velg runden du vil endre: <br />
+            <Select
+              placeholder="Velg runde"
+              value={selectedRoundIndex}
+              onChange={handleRoundSelectChange}
+            >
+              {rounds.map((round, index) => {
+                if (
+                  round.player_scores.every((player) => player.stand !== null)
+                ) {
+                  return (
+                    <MenuItem key={round.round_id} value={index}>
+                      {round.num_cards}{" "}
+                      {index + 1 / rounds.length < 12 ? "uten " : "med "}trumf
+                    </MenuItem>
+                  );
+                }
+              })}
+            </Select>
+            <br />
+            <br />
+            {selectedRoundIndex !== null &&
+              rounds[selectedRoundIndex]?.player_scores.map(
+                (playerScore, index) => (
+                  <div key={playerScore.player_scores_id}>
+                    <TextField
+                      sx={{ marginBottom: 1 }}
+                      type="number"
+                      label={`${
+                        players.sort(
+                          (a, b) => a.game_player_id - b.game_player_id
+                        )[index].nickname
+                      }`}
+                      value={trickInputs[index] || ""}
+                      onChange={(e) => handleInputChange(e.target.value, index)}
+                    />
+                    <Switch
+                      checked={playerScore.stand ?? false}
+                      onChange={(e) =>
+                        handleStandChange(
+                          e.target.checked,
+                          selectedRoundIndex,
+                          index
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+            <br />
+            <Button
+              variant="contained"
+              onClick={() => {
+                setEditModalOpen(false);
+              }}
+            >
+              Lukk
+            </Button>
+          </div>
+        </Modal>
+
         <Modal open={finalModalOpen} onClose={handleFinalClose}>
-          <div id="rules">
+          <div id="result-modal">
             <h1>Resultat</h1>
-            Spillet ble opprettet:{" "}
-            <b>
-              {currentGame?.created_on
-                ? new Date(currentGame.created_on).toDateString() +
-                  " " +
-                  new Date(currentGame.created_on).getHours() +
-                  ":" +
-                  new Date(currentGame.created_on).getMinutes()
-                : ""}
-            </b>
-            <br />
-            <br />
-            <b>SPILLERE:</b> <br />
+
             {players
               .sort((a, b) => b.score - a.score)
               .map((player: Player, index: number) => {
                 return (
                   <>
-                    {player.nickname} - {player.score} poeng
-                    {index + 1 < players.length ? (
-                      <>
-                        <br />
-                        <br />
-                      </>
-                    ) : (
-                      ""
-                    )}
+                    <PlayerCard
+                      position={index + 1}
+                      name={player.nickname}
+                      score={player.score}
+                      earnings={getPlayerEarnings(index)}
+                      diff_down={
+                        index < players.length - 1
+                          ? player.score -
+                            players.sort((a, b) => b.score - a.score)[index + 1]
+                              .score
+                          : undefined
+                      }
+                    />
                   </>
                 );
               })}
-            <br />
-            <br />
-            <br />
-            <br />
-            <b>PREMIER</b>
-            <br />
-            Vinner: <b>{prizes?.winner}</b>
-            <br />
-            Taper: <b>{prizes?.loser}</b>
-            <br />
-            Taper til vinner: <b>{prizes?.winnerPrize} kr</b>
-            <br />
-            {prizes?.second ? (
-              <>
-                2. plass: <b>{prizes.second}</b>
-                <br />
-                {players.length - 1}. plass: <b>{prizes.secondLoser}</b>
-                <br />
-                {players.length - 1}. plass til 2. plass:{" "}
-                <b>{prizes.secondPrize} kr</b>
-                <br />
-              </>
-            ) : (
-              ""
-            )}
+            <Button
+              sx={{ marginTop: "20px" }}
+              variant="contained"
+              onClick={() => {
+                setFinalModalOpen(false);
+              }}
+            >
+              Lukk
+            </Button>
           </div>
         </Modal>
       </div>

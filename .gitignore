@@ -8,3 +8,4 @@ node_modules
 /server/lb_venv
 laubet.sql
 .DS_Store
+bondebridge.sql

@@ -168,6 +168,8 @@ export type Player = {
   game_player_id: number;
   nickname: string;
   score: number;
+  bleedings: number;
+  warnings: number;
 };
 
 export type PlayerPreGame = {
@@ -192,6 +194,7 @@ export type Round = {
 
 export type PlayerScore = {
   player_scores_id: number | undefined;
+  game_player_id: number | undefined;
   num_tricks: number | null;
   stand: boolean | null;
 };
@@ -208,4 +211,61 @@ export type Prizes = {
 export type BondeUser = {
   player_id: number;
   nickname: string;
+  favorite: boolean;
+};
+
+export type Stats = {
+  avg_diffs: AvgDiffs[];
+  perc_underbid: number;
+  total_avg_diff: number;
+  success_rates: SuccessRateData;
+  player_earnings: PlayerEarnings;
+  bleedings: BleedingsStats[];
+  player_aggression: PlayerAggression[];
+  player_aggression_stand: PlayerAggression[];
+};
+
+export type PlayerAggression = {
+  num_cards: number;
+  [nickname: string]: number;
+};
+
+export type AvgDiffs = {
+  name: string;
+  value: number;
+};
+
+type SuccessRateInfo = {
+  stand_percentage: number;
+  total_occurrences: number;
+};
+
+export type SuccessRateData = Record<string, Record<string, SuccessRateInfo>>;
+
+export type PlayerEarnings = {
+  [nickname: string]: number;
+};
+
+export type BleedingsStats = {
+  nickname: string;
+  total_bleedings: number;
+  total_warnings: number;
+};
+
+export type PieData = {
+  name: string;
+  value: number;
+};
+
+export type SimplePieChartProps = {
+  data: PieData[];
+};
+
+export type BarChartDataItem = {
+  name: string;
+  value: number;
+};
+
+export type PositiveAndNegativeBarChartProps = {
+  data: BarChartDataItem[];
 };

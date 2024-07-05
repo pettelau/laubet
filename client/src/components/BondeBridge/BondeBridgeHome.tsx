@@ -4,13 +4,12 @@ import {
   Button,
   Card,
   CardContent,
-  Checkbox,
   Chip,
   Divider,
   Fab,
   FormControl,
+  FormControlLabel,
   Grid,
-  Input,
   InputAdornment,
   InputLabel,
   MenuItem,
@@ -18,7 +17,7 @@ import {
   Select,
   SelectChangeEvent,
   Snackbar,
-  Stack,
+  Switch,
   Tab,
   Tabs,
   TextField,
@@ -27,37 +26,32 @@ import {
 import React, { useEffect, useState } from "react";
 import {
   BondeUser,
-  Player,
   PlayerScore,
-  Prizes,
   Round,
   Game,
   GamePlayer,
   PlayerPreGame,
+  Stats,
+  SimplePieChartProps,
+  PositiveAndNegativeBarChartProps,
 } from "../../types";
 import { useAppSelector } from "../../redux/hooks";
 import { selectPath } from "../../redux/envSlice";
-
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Paper from "@mui/material/Paper";
-import Alert from "@mui/material/Alert";
-import { IconButton } from "@mui/material";
-import { InfoOutlined, Person } from "@mui/icons-material";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
-import CloseIcon from "@mui/icons-material/Close";
+import StarIcon from "@mui/icons-material/Star";
 
 import MuiAlert, { AlertProps } from "@mui/material/Alert";
 
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
-import { Pie } from "react-chartjs-2";
 import { useNavigate, useParams } from "react-router-dom";
-
-ChartJS.register(ArcElement, Tooltip, Legend);
+import {
+  BleedingsTable,
+  GaugeWithNeedle,
+  PlayerAggressionChart,
+  PlayerEarningsTable,
+  PositiveAndNegativeBarChart,
+  SimplePieChart,
+  SuccessRates,
+} from "./StatsCharts";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -105,19 +99,37 @@ export default function BondeBridgeHome() {
     React.useState<boolean>(false);
   const handleNewGameClose = () => setNewGameModalOpen(false);
 
-  const [moneyMultiplier, setMoneyMultiplier] = useState<number>(2);
-  const [extraCostLoser, setExtraCostLoser] = useState<number>(100);
-  const [extraCostSecondLast, setExtraCostSecondLast] = useState<number>(50);
+  const [moneyMultiplier, setMoneyMultiplier] = useState<number | null>(2);
+  const [extraCostLoser, setExtraCostLoser] = useState<number | null>(100);
+  const [extraCostSecondLast, setExtraCostSecondLast] = useState<number | null>(
+    50
+  );
+
+  const [numTenRounds, setNumTenRounds] = useState<number | null>(5);
+  const [numNineRounds, setNumNineRounds] = useState<number | null>(2);
+
+  const [stats, setStats] = useState<Stats>();
 
   const [users, setUsers] = useState<BondeUser[]>([]);
+  const sortedUsers = [...users].sort((a, b) => {
+    if (a.favorite && !b.favorite) return -1;
+    if (!a.favorite && b.favorite) return 1;
+    return 0;
+  });
+
+  const [selectedUserIDs, setSelectedUserIDs] = useState<number[]>([]);
+
+  const [exclusiveSelect, setExclusiveSelect] = useState<boolean>(false);
+
+  const [onlyStandRounds, setOnlyStandRounds] = useState<boolean>(false);
+
+  const [emptyStatsSet, setEmptyStatsSet] = useState<boolean>(false);
 
   const [players, setPlayers] = useState<PlayerPreGame[]>([]);
 
   const [games, setGames] = useState<Game[]>([]);
 
   const [dealerIndex, setDealerIndex] = useState<number>(0);
-
-  const [alertOpen, setAlertOpen] = useState<boolean>(false);
 
   // const NUMBER_OF_ROUNDS = 3;
   const NUMBER_OF_ROUNDS = Math.floor(52 / players.length);
@@ -150,14 +162,13 @@ export default function BondeBridgeHome() {
 
       // Steps 2 and 3: Generate rounds and send them to the backend
       let tempRounds = generateRounds(); // Function to generate empty rounds
-      console.log(JSON.stringify({ game_id, rounds: tempRounds }));
       const roundsResponse = await fetch(`${url_path}api/bonde/rounds`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           game_id: game_id,
           rounds: tempRounds,
-          num_players: players.length,
+          game_player_ids: game_player_ids.sort(),
         }),
       });
 
@@ -180,12 +191,43 @@ export default function BondeBridgeHome() {
     for (let i = 0; i < players.length; i++) {
       tempPlayerScores.push({
         player_scores_id: undefined,
+        game_player_id: undefined,
         num_tricks: null,
         stand: null,
       });
     }
     // Down rounds
     for (let j = NUMBER_OF_ROUNDS; j > 1; j--) {
+      if (
+        players.length > 4 &&
+        numTenRounds !== null &&
+        numNineRounds !== null
+      ) {
+        if (j === NUMBER_OF_ROUNDS) {
+          for (let k = 1; k < numTenRounds; k++) {
+            tempRounds.push({
+              round_id: null,
+              dealer_index: _dealerIndex % players.length,
+              num_cards: 10,
+              locked: false,
+              player_scores: tempPlayerScores,
+            });
+            _dealerIndex += 1;
+          }
+        }
+        if (j === NUMBER_OF_ROUNDS - 1) {
+          for (let k = 1; k < numNineRounds; k++) {
+            tempRounds.push({
+              round_id: null,
+              dealer_index: _dealerIndex % players.length,
+              num_cards: 9,
+              locked: false,
+              player_scores: tempPlayerScores,
+            });
+            _dealerIndex += 1;
+          }
+        }
+      }
       tempRounds.push({
         round_id: null,
         dealer_index: _dealerIndex % players.length,
@@ -198,6 +240,36 @@ export default function BondeBridgeHome() {
 
     // Up rounds
     for (let k = 2; k < NUMBER_OF_ROUNDS + 1; k++) {
+      if (
+        players.length > 4 &&
+        numTenRounds !== null &&
+        numNineRounds !== null
+      ) {
+        if (k === NUMBER_OF_ROUNDS) {
+          for (let k = 1; k < numTenRounds; k++) {
+            tempRounds.push({
+              round_id: null,
+              dealer_index: _dealerIndex % players.length,
+              num_cards: 10,
+              locked: false,
+              player_scores: tempPlayerScores,
+            });
+            _dealerIndex += 1;
+          }
+        }
+        if (k === NUMBER_OF_ROUNDS - 1) {
+          for (let k = 1; k < numNineRounds; k++) {
+            tempRounds.push({
+              round_id: null,
+              dealer_index: _dealerIndex % players.length,
+              num_cards: 9,
+              locked: false,
+              player_scores: tempPlayerScores,
+            });
+            _dealerIndex += 1;
+          }
+        }
+      }
       tempRounds.push({
         round_id: null,
         dealer_index: _dealerIndex % players.length,
@@ -241,7 +313,6 @@ export default function BondeBridgeHome() {
       const response = await fetch(`${url_path}api/bonde/users`);
       const data = await response.json();
       setUsers(data.users);
-      console.log(data.users);
     } catch (err) {
       setError("Kunne ikke hente brukere");
       console.error(err);
@@ -253,8 +324,42 @@ export default function BondeBridgeHome() {
       const response = await fetch(`${url_path}api/bonde/games`);
       const data = await response.json();
       setGames(data.games);
-      console.log(data.games);
     } catch (err) {
+      setError("Noe gikk galt. Kunne ikke hente eksisterende spill");
+      console.error(err);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      let endpoint = `${url_path}api/bonde/stats`;
+
+      const queryParams = [];
+      // Convert the playerIds array to a comma-separated string and attach as a query parameter
+      if (selectedUserIDs.length) {
+        const idsString = selectedUserIDs.join(",");
+        queryParams.push(`playerIds=${idsString}`);
+      }
+
+      if (exclusiveSelect) {
+        queryParams.push("exclusiveselect=True");
+      }
+
+      if (queryParams.length) {
+        endpoint += `?${queryParams.join("&")}`;
+      }
+
+      const response = await fetch(endpoint);
+      if (response.status === 204) {
+        setEmptyStatsSet(true);
+        setStats(undefined);
+        return;
+      }
+      const data = await response.json();
+
+      setStats(data as Stats);
+    } catch (err) {
+      setEmptyStatsSet(false);
       setError("Noe gikk galt. Kunne ikke hente eksisterende spill");
       console.error(err);
     }
@@ -263,7 +368,22 @@ export default function BondeBridgeHome() {
   useEffect(() => {
     fetchUsers();
     fetchGames();
+    fetchStats();
   }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [selectedUserIDs, exclusiveSelect]);
+
+  const handleSwitchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setExclusiveSelect(event.target.checked);
+  };
+
+  const handleStandSwitchChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setOnlyStandRounds(event.target.checked);
+  };
 
   const handlePlayerSelect = (event: any, newValues: BondeUser[] | null) => {
     // Convert the BondeUser to Player type with score initialized to 0
@@ -300,6 +420,12 @@ export default function BondeBridgeHome() {
   const handleSnackClick = () => {
     setSnackOpen(true);
   };
+
+  // dont need favorite to be brought further with the player after creation of game
+  const playersForAutocomplete = players.map((player) => {
+    // Assuming `player` has all the necessary fields that a `BondeUser` would have
+    return { ...player, favorite: false }; // Add 'favorite' field
+  });
 
   const handleSnackClose = (
     event?: React.SyntheticEvent | Event,
@@ -340,6 +466,7 @@ export default function BondeBridgeHome() {
           >
             <Tab label="Eksisterende spill" {...a11yProps(0)} />
             <Tab label="Lag nytt spill" {...a11yProps(1)} />
+            <Tab label="Statistikk" {...a11yProps(2)} />
           </Tabs>
         </Box>
         <CustomTabPanel value={value} index={0}>
@@ -421,13 +548,29 @@ export default function BondeBridgeHome() {
               <Autocomplete
                 multiple
                 filterSelectedOptions
-                options={users}
+                options={sortedUsers}
                 getOptionLabel={(option) => option.nickname}
                 onChange={handlePlayerSelect}
-                value={players} // Map selected players to BondeUser type for Autocomplete
+                value={playersForAutocomplete}
                 isOptionEqualToValue={(option, value) =>
                   option.player_id === value.player_id
                 }
+                renderOption={(props, option) => (
+                  <li
+                    {...props}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      width: "100%",
+                    }}
+                  >
+                    {option.nickname}
+                    {option.favorite && (
+                      <StarIcon style={{ fontSize: "1rem" }} />
+                    )}
+                  </li>
+                )}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -457,9 +600,13 @@ export default function BondeBridgeHome() {
                   size="small"
                   label="Differanse ganges med"
                   type="number"
-                  value={moneyMultiplier}
+                  value={moneyMultiplier === null ? "" : moneyMultiplier}
                   onChange={(e) => {
-                    setMoneyMultiplier(Number(e.target.value));
+                    if (e.target.value === "") {
+                      setMoneyMultiplier(null);
+                    } else {
+                      setMoneyMultiplier(Number(e.target.value));
+                    }
                   }}
                 />
                 <br />
@@ -473,9 +620,13 @@ export default function BondeBridgeHome() {
                   size="small"
                   label={`Sum ${players.length}. plass til 1. plass`}
                   type="number"
-                  value={extraCostLoser}
+                  value={extraCostLoser === null ? "" : extraCostLoser}
                   onChange={(e) => {
-                    setExtraCostLoser(Number(e.target.value));
+                    if (e.target.value === "") {
+                      setExtraCostLoser(null);
+                    } else {
+                      setExtraCostLoser(Number(e.target.value));
+                    }
                   }}
                 />
               </>
@@ -495,9 +646,15 @@ export default function BondeBridgeHome() {
                   size="small"
                   label={`Sum ${players.length - 1}. plass til 2. plass`}
                   type="number"
-                  value={extraCostSecondLast}
+                  value={
+                    extraCostSecondLast === null ? "" : extraCostSecondLast
+                  }
                   onChange={(e) => {
-                    setExtraCostSecondLast(Number(e.target.value));
+                    if (e.target.value === "") {
+                      setExtraCostSecondLast(null);
+                    } else {
+                      setExtraCostSecondLast(Number(e.target.value));
+                    }
                   }}
                 />
                 <br />
@@ -542,9 +699,63 @@ export default function BondeBridgeHome() {
             ) : (
               ""
             )}
+            {players.length > 4 ? (
+              <>
+                <br />
+                <br />
+                <FormControl sx={{ minWidth: 210 }}>
+                  <TextField
+                    size="small"
+                    label="Antall 10-runder"
+                    type="number"
+                    value={numTenRounds === null ? "" : numTenRounds}
+                    onChange={(e) => {
+                      if (e.target.value === "") {
+                        setNumTenRounds(null);
+                      } else {
+                        setNumTenRounds(Number(e.target.value));
+                      }
+                    }}
+                  />
+                </FormControl>
+                <br />
+              </>
+            ) : (
+              ""
+            )}
+            {players.length > 4 ? (
+              <>
+                <br />
+                <FormControl sx={{ minWidth: 210 }}>
+                  <TextField
+                    size="small"
+                    label="Antall 9-runder"
+                    type="number"
+                    value={numNineRounds === null ? "" : numNineRounds}
+                    onChange={(e) => {
+                      if (e.target.value === "") {
+                        setNumNineRounds(null);
+                      } else {
+                        setNumNineRounds(Number(e.target.value));
+                      }
+                    }}
+                  />
+                </FormControl>
+                <br />
+              </>
+            ) : (
+              ""
+            )}
             <br />
             <Button
-              disabled={players.length < 3}
+              disabled={
+                players.length < 3 ||
+                moneyMultiplier === null ||
+                extraCostLoser === null ||
+                extraCostSecondLast === null ||
+                numNineRounds === null ||
+                numTenRounds === null
+              }
               variant="contained"
               onClick={() => {
                 initGame();
@@ -553,6 +764,131 @@ export default function BondeBridgeHome() {
               Opprett spill!
             </Button>
             <br />
+          </div>
+        </CustomTabPanel>
+        <CustomTabPanel value={value} index={2}>
+          <div id="stats">
+            <div
+              style={{
+                maxWidth: "90%",
+                width: "100%",
+                margin: "auto",
+              }}
+            >
+              <Autocomplete
+                multiple
+                id="player-select"
+                options={sortedUsers}
+                getOptionLabel={(option) => option.nickname}
+                value={users.filter((user) =>
+                  selectedUserIDs.includes(user.player_id)
+                )}
+                onChange={(_, newValue) => {
+                  setSelectedUserIDs(newValue.map((user) => user.player_id));
+                }}
+                renderOption={(props, option) => (
+                  <li
+                    {...props}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      width: "100%",
+                    }}
+                  >
+                    {option.nickname}
+                    {option.favorite && (
+                      <StarIcon style={{ fontSize: "1rem" }} />
+                    )}
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    variant="outlined"
+                    label="Filtrer statistikk på spillere"
+                    placeholder="Spillere"
+                  />
+                )}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={exclusiveSelect}
+                    disabled={selectedUserIDs.length < 2 ? true : false}
+                    onChange={handleSwitchChange}
+                    inputProps={{ "aria-label": "controlled" }}
+                  />
+                }
+                label="Vis kun stats hvor alle de valgte spillere er involvert samtidig"
+              />
+            </div>
+            {stats ? (
+              <>
+                <h2>UNDERMELDT VS OVERMELDT</h2>
+                <SimplePieChart
+                  data={[
+                    { name: "Undermeldt", value: stats.perc_underbid },
+                    { name: "Overmeldt", value: 100 - stats.perc_underbid },
+                  ]}
+                />
+                <h2>GJ.SNITT OVER/UNDERMELDT PER ANTALL KORT</h2>
+                <PositiveAndNegativeBarChart data={stats.avg_diffs} />
+                <h2>
+                  GJENNOMSNITTLIG <br />
+                  UNDERMELDT/OVERMELDT:
+                </h2>
+                <div style={{ marginTop: -100, paddingLeft: 94 }}>
+                  <GaugeWithNeedle value={stats.total_avg_diff} />
+                </div>
+                <h2>{stats.total_avg_diff}</h2>
+                <h2>GJ.SNITT BUD PER SPILLER PER ANTALL KORT</h2>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={onlyStandRounds}
+                      onChange={handleStandSwitchChange}
+                      inputProps={{ "aria-label": "controlled" }}
+                    />
+                  }
+                  label="Vis kun stats hvor hvor spilleren sto runden sin"
+                />
+                <PlayerAggressionChart
+                  aggressionData={
+                    onlyStandRounds
+                      ? stats.player_aggression_stand
+                      : stats.player_aggression
+                  }
+                />
+                <br />
+                <Alert severity="info">
+                  Husk at du kan velge å vise stats for bare spesifikke spillere
+                  dersom grafen er uoversiktlig.
+                </Alert>
+                <br />
+                <h2>Success rates</h2>
+                <SuccessRates successRateData={stats.success_rates} />
+                <h2>Inntjeninger/tap</h2>
+                {Object.keys(stats.player_earnings).length === 0 ? (
+                  <Alert severity="info">
+                    Det finnes ingen spill med nøyaktig de valgte spillerne.
+                  </Alert>
+                ) : (
+                  <PlayerEarningsTable playerEarnings={stats.player_earnings} />
+                )}
+                <h2>Blødninger</h2>
+                <BleedingsTable bleedingsData={stats.bleedings} />
+              </>
+            ) : emptyStatsSet ? (
+              <>
+                <br />
+                <Alert severity="info">
+                  Det finnes ingen spill med disse spillerne involvert samtidig.
+                </Alert>
+              </>
+            ) : (
+              "Laster stats ..."
+            )}
           </div>
         </CustomTabPanel>
 

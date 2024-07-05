@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from time import sleep
 from fastapi import FastAPI, Depends
@@ -128,7 +128,6 @@ async def get_leaderboard(
     token: str = Depends(authUtils.validate_access_token),
 ):
     leaderboard_data = []
-    print("inside leaderboard")
     try:
         users = fetchDBJson("select username, user_id, balance from users")
         for user in users:
@@ -222,13 +221,62 @@ async def add_to_dictionary(
         raise HTTPException(status_code=403, detail="Something went wrong")
 
 
-@api_router.post("/api/updatecompetition")
+@app.put("/api/dictionary/updateword")
+async def update_dictionary(
+    payload: dict, token: str = Depends(authUtils.validate_access_token)
+):
+    print(payload)
+    try:
+        if token["user"].lower() == payload["submitter"].lower() or is_admin(
+            token["user"]
+        ):
+            if isinstance(payload["frequency"], int):
+                cursor = connection.cursor()
+                query = Template(
+                    "update dictionary set word='$word', frequency=$frequency, description='$description' where word_id=$word_id;"
+                ).safe_substitute(
+                    {
+                        "word": payload["word"],
+                        "frequency": payload["frequency"],
+                        "description": payload["description"],
+                        "word_id": payload["word_id"],
+                    }
+                )
+                cursor.execute(query)
+                connection.commit()
+                return {"updatedWord": True}
+            else:
+                raise HTTPException(
+                    status_code=422, detail="Frequency must be an integer"
+                )
+        else:
+            raise HTTPException(
+                status_code=403, detail="You cannot update another person's word"
+            )
+    except Exception as e:
+        raise HTTPException(status_code=403, detail="Something went wrong")
+
+
+@app.delete("/api/dictionary/deleteword/{word_id}")
+async def delete_in_dictionary(
+    word_id: str, token: str = Depends(authUtils.validate_access_token)
+):
+    try:
+        cursor = connection.cursor()
+        query = Template(
+            "delete from dictionary where word_id=$word_id"
+        ).safe_substitute({"word_id": word_id})
+        cursor.execute(query)
+        connection.commit()
+        return {"deleteWord": True}
+    except Exception as e:
+        raise HTTPException(status_code=403, detail="Could not delete word")
+
+
+@app.post("/api/updatecompetition")
 async def update_comp(
     payload: dict, token: str = Depends(authUtils.validate_access_token)
 ):
-    print("her")
-    print(payload)
-
     try:
         cursor = connection.cursor()
         query = Template(
@@ -261,7 +309,6 @@ async def get_accums(token: str = Depends(authUtils.validate_access_token)):
 
         accum["accumBets"] = accum_options
         accums_with_options.append(accum)
-    print(accums_with_options)
     return accums_with_options
 
 
@@ -283,7 +330,6 @@ async def get_accums(user, token: str = Depends(authUtils.validate_access_token)
 
         accum["accumBets"] = accum_options
         accums_with_options.append(accum)
-    print(accums_with_options)
     return accums_with_options
 
 
@@ -313,7 +359,6 @@ async def get_accums(token: str = Depends(authUtils.validate_access_token)):
 
         accum["accumBets"] = accum_options
         accums_with_options.append(accum)
-    print(accums_with_options)
     return accums_with_options
 
 
@@ -539,7 +584,6 @@ async def reset_password(
 ):
     if is_admin(token["user"]):
         try:
-            print("payload", payload)
             hashed = bcrypt.hashpw(
                 bytes(payload["new_password"], encoding="utf-8"), bcrypt.gensalt()
             )
@@ -549,7 +593,6 @@ async def reset_password(
             ).safe_substitute(
                 {"password": hashed.decode("utf-8"), "user_id": payload["user_id"]}
             )
-            print(update_password)
             cursor = connection.cursor()
             cursor.execute(update_password)
             connection.commit()
@@ -594,7 +637,6 @@ async def create_bet(bet: dict, token: str = Depends(authUtils.validate_access_t
         # close_date = parser.parse(bet["close_date"]).replace(
         #     tzinfo=ZoneInfo("Europe/Berlin")
         # )
-        # print(bet["close_date"].astimezone(pytz.timezone("Europe/Oslo")))
         # create bet
         cursor = connection.cursor()
         query1 = Template(
@@ -854,19 +896,20 @@ async def get_users():
     games = fetchDBJsonNew(query)
 
     # Loop through each game and get the players for that game
-    for game in games:
-        players_query = """
-            SELECT game_players.player_id, game_player_id, nickname, score
-            FROM games 
-            NATURAL JOIN game_players 
-            LEFT JOIN bonde_users ON game_players.player_id = bonde_users.player_id 
-            WHERE game_id = %s;
-        """
-        players_result = fetchDBJsonNew(players_query, (game["game_id"],))
-        game["players"] = [
-            {"nickname": player["nickname"], "score": player["score"]}
-            for player in players_result
-        ]
+    if games:
+        for game in games:
+            players_query = """
+                SELECT game_players.player_id, game_player_id, nickname, score
+                FROM games 
+                NATURAL JOIN game_players 
+                LEFT JOIN bonde_users ON game_players.player_id = bonde_users.player_id 
+                WHERE game_id = %s;
+            """
+            players_result = fetchDBJsonNew(players_query, (game["game_id"],))
+            game["players"] = [
+                {"nickname": player["nickname"], "score": player["score"]}
+                for player in players_result
+            ]
 
     # except Exception as e:
     #     return HTTPException(
@@ -875,67 +918,396 @@ async def get_users():
     return {"games": games}
 
 
-@api_router.get("/api/bonde/game/{game_id}")
+def calc_player_earnings(playerIds: Optional[str]):
+    game_ids_query = "select game_id, money_multiplier, extra_cost_loser, extra_cost_second_last from games where status = 'finished'"
+    games = fetchDBJsonNew(game_ids_query)
+
+    player_earnings = dict()  # Format {1: -40, 2: 54, 3: 187 ...}
+    player_nicknames = dict()  # To store player_id to nickname mapping
+
+    for game in games:
+        players_query = "select score, bonde_users.player_id, nickname from game_players left join bonde_users on game_players.player_id = bonde_users.player_id where game_id = %s"
+        players = fetchDBJsonNew(players_query, (game["game_id"],))
+
+        # Update player_nicknames dictionary
+        for player in players:
+            player_nicknames[player["player_id"]] = player["nickname"]
+
+        player_ids_list = playerIds.split(",") if playerIds else None
+        game_player_ids = [str(player["player_id"]) for player in players]
+
+        if player_ids_list is None or set(player_ids_list) == set(game_player_ids):
+            # Sort players by scores
+            players.sort(key=lambda x: x["score"], reverse=True)
+
+            if len(players) < 4:
+                continue
+            # Calculate earnings/losses
+            first_place, last_place = players[0], players[-1]
+            second_place, second_last_place = players[1], players[-2]
+
+            # Initialize earnings and losses
+            first_place_earnings = second_place_earnings = 0
+            last_place_earnings = second_last_earnings = 0
+
+            # Check for ties between first and second, and last and second last
+            if first_place["score"] == second_place["score"]:
+                # If first and second place tie, split combined earnings
+                total_earnings = (
+                    (first_place["score"] - last_place["score"])
+                    * game["money_multiplier"]
+                    + game["extra_cost_loser"]
+                ) + (
+                    (second_place["score"] - second_last_place["score"])
+                    * game["money_multiplier"]
+                    + game["extra_cost_second_last"]
+                )
+                first_place_earnings = second_place_earnings = total_earnings / 2
+            else:
+                # Calculate earnings for first and second places normally
+                first_place_earnings = (
+                    first_place["score"] - last_place["score"]
+                ) * game["money_multiplier"] + game["extra_cost_loser"]
+                second_place_earnings = (
+                    second_place["score"] - second_last_place["score"]
+                ) * game["money_multiplier"] + game["extra_cost_second_last"]
+
+            if last_place["score"] == second_last_place["score"]:
+                # If last and second last tie, split the total losses
+                total_loss = -(first_place_earnings + second_place_earnings)
+                last_place_earnings = second_last_earnings = total_loss / 2
+            else:
+                last_place_earnings = -first_place_earnings
+                second_last_earnings = -second_place_earnings
+
+            # Special edge cases
+            if (
+                first_place["score"]
+                == second_place["score"]
+                == second_last_place["score"]
+                == last_place["score"]
+            ):
+                first_place_earnings = (
+                    second_place_earnings
+                ) = second_last_earnings = last_place_earnings = 0
+            elif (
+                first_place["score"]
+                == second_place["score"]
+                == second_last_place["score"]
+            ):
+                first_place_earnings = second_place_earnings = second_last_earnings = (
+                    last_place_earnings / 3
+                )
+            elif (
+                second_place["score"]
+                == second_last_place["score"]
+                == last_place["score"]
+            ):
+                second_place_earnings = second_last_earnings = last_place_earnings = 0
+            if second_last_place["score"] == second_place["score"]:
+                second_last_earnings = second_place_earnings = 0
+
+            # Update player_earnings
+            for player in players:
+                player_id = player["player_id"]
+                if player_id == first_place["player_id"]:
+                    earnings = first_place_earnings
+                elif player_id == last_place["player_id"]:
+                    earnings = last_place_earnings
+                elif player_id == second_place["player_id"]:
+                    earnings = second_place_earnings
+                elif player_id == second_last_place["player_id"]:
+                    earnings = second_last_earnings
+                else:
+                    earnings = 0  # For players not in first, second, last, or second last place
+
+                if player_id in player_earnings:
+                    player_earnings[player_id] += earnings
+                else:
+                    player_earnings[player_id] = earnings
+        else:
+            continue
+    print(player_earnings)
+
+    # Swap player_id with nickname
+    final_earnings = {
+        player_nicknames[player_id]: earnings
+        for player_id, earnings in player_earnings.items()
+        if player_id in player_nicknames
+    }
+
+    return final_earnings
+
+
+@app.get("/api/bonde/stats")
+async def get_stats(
+    playerIds: Optional[str] = None, exclusiveselect: Optional[str] = "False"
+):
+    # Fetching needed data from db
+    # try:
+    base_query1 = """
+    SELECT SUM(num_tricks), MAX(num_cards) as num_cards
+    FROM player_scores
+    NATURAL JOIN rounds LEFT JOIN games on rounds.game_id = games.game_id
+    WHERE stand IS NOT NULL
+
+    """
+    base_query2 = """
+    SELECT 
+        r.num_cards,
+        ps.num_tricks,
+        ROUND(100.0 * SUM(CASE WHEN ps.stand THEN 1 ELSE 0 END) / COUNT(*), 2) AS stand_percentage,
+        COUNT(*) AS total_occurrences
+    FROM 
+        rounds r
+    JOIN 
+        player_scores ps ON r.round_id = ps.round_id
+    JOIN
+        games ON r.game_id = games.game_id
+    WHERE 
+        ps.num_tricks IS NOT NULL
+    """
+
+    base_query3 = """
+    select
+        bu.nickname,
+        r.num_cards,
+        ROUND(AVG(ps.num_tricks), 1) AS avg_tricks,
+        COUNT(DISTINCT r.round_id) AS num_rounds
+    from
+        player_scores ps
+    left join rounds r on
+        ps.round_id = r.round_id
+    left join game_players gp on
+        ps.game_player_id = gp.game_player_id
+    left join bonde_users bu on
+        gp.player_id = bu.player_id
+    left join games g on r.game_id = g.game_id 
+    """
+
+    base_query4 = """
+    select
+        bu.nickname,
+        r.num_cards,
+        ROUND(AVG(ps.num_tricks), 1) AS avg_tricks,
+        COUNT(DISTINCT r.round_id) AS num_rounds
+    from
+        player_scores ps
+    left join rounds r on
+        ps.round_id = r.round_id
+    left join game_players gp on
+        ps.game_player_id = gp.game_player_id
+    left join bonde_users bu on
+        gp.player_id = bu.player_id
+    left join games g on r.game_id = g.game_id 
+    """
+    exclusive = exclusiveselect.lower() == "true"
+    # If playerIds are provided, filter results
+    if playerIds:
+        ids_list = playerIds.split(",")
+
+        # Convert the string IDs to integers
+        ids_list = [int(id) for id in ids_list]
+
+        player_condition = f" AND games.game_id IN (SELECT game_id \
+                        FROM game_players \
+                        WHERE player_id IN ({','.join([str(id) for id in ids_list])}) \
+                        GROUP BY game_id"
+
+        if exclusive:
+            player_condition += f" HAVING COUNT(DISTINCT player_id) = {len(ids_list)})"
+        else:
+            player_condition += ")"
+
+        base_query1 += player_condition
+        base_query2 += player_condition
+        base_query3 += f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])}) and g.status = 'finished'"
+        base_query4 += f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])}) and ps.stand = TRUE group by r.num_cards, bu.nickname"
+    else:
+        base_query3 += "WHERE g.status = 'finished'"
+        base_query4 += "WHERE ps.stand = TRUE group by r.num_cards, bu.nickname"
+
+    base_query1 += " GROUP BY round_id ORDER BY num_cards DESC;"
+    base_query2 += (
+        "  GROUP BY r.num_cards, ps.num_tricks ORDER BY r.num_cards, ps.num_tricks"
+    )
+    base_query3 += " group by r.num_cards, bu.nickname"
+
+    result1 = fetchDBJsonNew(base_query1)
+    result2 = fetchDBJsonNew(base_query2)
+    result3 = fetchDBJsonNew(base_query3)
+    result4 = fetchDBJsonNew(base_query4)
+
+    player_earnings = calc_player_earnings(playerIds)
+
+    bleedings_query = "select nickname, SUM(bleedings) as total_bleedings, SUM(warnings) as total_warnings from game_players left join bonde_users on game_players.player_id = bonde_users.player_id group by bonde_users.nickname order by total_bleedings DESC"
+
+    bleedings = fetchDBJsonNew(bleedings_query)
+    print(bleedings)
+
+    if result1 and result2:
+        num_underbid = 0
+        num_overbid = 0
+        total_diff = 0
+
+        diffs = {}
+        counts = {}
+        chart_data = []
+        for row in result1:
+            sum_val = row["sum"]
+            num_cards = row["num_cards"]
+            if sum_val < num_cards:
+                num_underbid += 1
+            else:
+                num_overbid += 1
+            total_diff += sum_val - num_cards
+
+            difference = sum_val - num_cards
+
+            # Update diffs and counts dictionaries
+            if num_cards in diffs:
+                diffs[num_cards] += difference
+                counts[num_cards] += 1
+            else:
+                diffs[num_cards] = difference
+                counts[num_cards] = 1
+
+        total_avg_diff = round((total_diff / len(result1)), 1)
+        for num_cards in diffs:
+            avg_diff = round(diffs[num_cards] / counts[num_cards], 2)
+            chart_data.append({"name": str(num_cards), "value": avg_diff})
+
+        perc_underbid = round(num_underbid / len(result1) * 100, 1)
+
+        # Initialize an empty defaultdict
+        success_rate_data = defaultdict(dict)
+
+        # Populate the defaultdict with the query results
+        for row in result2:
+            num_cards = row["num_cards"]
+            num_tricks = row["num_tricks"]
+            stand_percentage = row["stand_percentage"]
+            total_occurrences = row["total_occurrences"]
+            success_rate_data[num_cards][num_tricks] = {
+                "stand_percentage": stand_percentage,
+                "total_occurrences": total_occurrences,
+            }
+
+        avg_bids_by_cards = {}
+
+        for item in result3:
+            num_cards = item["num_cards"]
+            nickname = item["nickname"]
+            avg = round(item["avg_tricks"], 1)
+
+            if num_cards not in avg_bids_by_cards:
+                avg_bids_by_cards[num_cards] = {"num_cards": num_cards}
+
+            avg_bids_by_cards[num_cards][nickname] = avg
+
+        # Convert the dictionary into a list for Recharts
+        player_aggression = list(avg_bids_by_cards.values())
+
+        avg_bids_by_cards_stand = {}
+
+        for item in result4:
+            num_cards = item["num_cards"]
+            nickname = item["nickname"]
+            avg = round(item["avg_tricks"], 1)
+
+            if num_cards not in avg_bids_by_cards_stand:
+                avg_bids_by_cards_stand[num_cards] = {"num_cards": num_cards}
+
+            avg_bids_by_cards_stand[num_cards][nickname] = avg
+
+        # Convert the dictionary into a list for Recharts
+        player_aggression_stand = list(avg_bids_by_cards_stand.values())
+
+        # Convert the defaultdict to a regular dict
+        success_rate_data = dict(success_rate_data)
+        return {
+            "perc_underbid": perc_underbid,
+            "total_avg_diff": total_avg_diff,
+            "avg_diffs": chart_data,
+            "success_rates": success_rate_data,
+            "player_earnings": player_earnings,
+            "bleedings": bleedings,
+            "player_aggression": player_aggression,
+            "player_aggression_stand": player_aggression_stand,
+        }
+    else:
+        return Response(status_code=204)
+    # except Exception as e:
+    #     print(e)
+    #     raise HTTPException(status_code=400, detail=f"Error: {e}")
+
+
+@app.get("/api/bonde/game/{game_id}")
 async def get_game(game_id: int):
-    query = "SELECT * FROM games WHERE game_id = %s;"
-    game = fetchDBJsonNew(query, (game_id,))
+    try:
+        query = "SELECT * FROM games WHERE game_id = %s;"
+        game = fetchDBJsonNew(query, (game_id,))
 
-    # Fetch corresponding rounds
-    rounds_query = "SELECT round_id, num_cards, dealer_index, locked FROM rounds WHERE game_id = %s;"
-    rounds = fetchDBJsonNew(rounds_query, (game_id,))
+        # Fetch corresponding rounds
+        rounds_query = "SELECT round_id, num_cards, dealer_index, locked FROM rounds WHERE game_id = %s;"
+        rounds = fetchDBJsonNew(rounds_query, (game_id,))
 
-    for round in rounds:
-        round_scores_qurey = "SELECT player_scores_id, num_tricks, stand FROM player_scores WHERE round_id = %s ORDER BY player_scores_id ASC;"
-        round_scores = fetchDBJsonNew(round_scores_qurey, (round["round_id"],))
-        round["player_scores"] = round_scores
+        for round in rounds:
+            round_scores_qurey = "SELECT player_scores_id, num_tricks, stand FROM player_scores WHERE round_id = %s ORDER BY player_scores_id ASC;"
+            round_scores = fetchDBJsonNew(round_scores_qurey, (round["round_id"],))
+            round["player_scores"] = round_scores
 
-    players_query = """
-            SELECT nickname, game_player_id, game_players.player_id 
-            FROM games 
-            NATURAL JOIN game_players 
-            LEFT JOIN bonde_users ON game_players.player_id = bonde_users.player_id 
-            WHERE game_id = %s ORDER BY game_player_id ASC;
-        """
-    players = fetchDBJsonNew(players_query, (game_id,))
-
+        players_query = """
+                SELECT nickname, bleedings, warnings, game_player_id, game_players.player_id 
+                FROM games 
+                NATURAL JOIN game_players 
+                LEFT JOIN bonde_users ON game_players.player_id = bonde_users.player_id 
+                WHERE game_id = %s ORDER BY game_player_id ASC;
+            """
+        players = fetchDBJsonNew(players_query, (game_id,))
+    except Exception as e:
+        return HTTPException(
+            status_code=500, detail="Something wrong. Could not fetch games"
+        )
     return {"game": game, "rounds": rounds, "players": players}
 
 
 @api_router.get("/api/bonde/users")
 async def get_users():
-    try:
-        query = "SELECT player_id, nickname FROM bonde_users;"
-        users = fetchDBJson(query)
-    except Exception as e:
-        return HTTPException(
-            status_code=500, detail="Something wrong. Could not fetch users"
-        )
+    # try:
+    query = "SELECT player_id, nickname, favorite FROM bonde_users"
+    users = fetchDBJsonNew(query)
+
+    # except Exception as e:
+    #     return HTTPException(
+    #         status_code=500, detail="Something wrong. Could not fetch users"
+    #     )
     return {"users": users}
 
 
 @api_router.post("/api/bonde/game")
 async def create_game(game: GameCreate):
-    # try:
-    cursor = connection.cursor()
-    query1 = "INSERT INTO games(money_multiplier, extra_cost_loser, extra_cost_second_last) VALUES (%s, %s, %s) RETURNING game_id;"
-    cursor.execute(
-        query1,
-        (game.money_multiplier, game.extra_cost_loser, game.extra_cost_second_last),
-    )
-    game_id = cursor.fetchone()[0]
+    try:
+        cursor = connection.cursor()
+        query1 = "INSERT INTO games(money_multiplier, extra_cost_loser, extra_cost_second_last) VALUES (%s, %s, %s) RETURNING game_id;"
+        cursor.execute(
+            query1,
+            (game.money_multiplier, game.extra_cost_loser, game.extra_cost_second_last),
+        )
+        game_id = cursor.fetchone()[0]
 
-    game_player_ids = []
-    # Add players to game_players table
-    for player_id in game.players:
-        query = "INSERT INTO game_players(game_id, player_id) VALUES (%s, %s) RETURNING game_player_id;"
-        cursor.execute(query, (game_id, player_id))
-        game_player_ids.append(cursor.fetchone()[0])
+        game_player_ids = []
+        # Add players to game_players table
+        for player_id in game.players:
+            query = "INSERT INTO game_players(game_id, player_id) VALUES (%s, %s) RETURNING game_player_id;"
+            cursor.execute(query, (game_id, player_id))
+            game_player_ids.append(cursor.fetchone()[0])
 
-    connection.commit()
-    # except Exception as e:
-    #     return HTTPException(
-    #         status_code=500, detail="Something wrong. Could not create game"
-    #     )
+        connection.commit()
+    except Exception as e:
+        return HTTPException(
+            status_code=500, detail="Something wrong. Could not create game"
+        )
 
     return {
         "game_id": game_id,
@@ -961,9 +1333,9 @@ async def create_rounds(rounds: dict):
             # Add all player scores for each round
             scores_id_round = []
 
-            for _ in range(rounds["num_players"]):
-                query = "INSERT INTO player_scores(round_id) VALUES (%s) RETURNING player_scores_id;"
-                cursor.execute(query, (round_id,))
+            for game_player_id in rounds["game_player_ids"]:
+                query = "INSERT INTO player_scores(round_id, game_player_id) VALUES (%s, %s) RETURNING player_scores_id;"
+                cursor.execute(query, (round_id, game_player_id))
                 player_scores_id = cursor.fetchone()[0]
                 scores_id_round.append(player_scores_id)
 
@@ -981,36 +1353,35 @@ async def create_rounds(rounds: dict):
 @api_router.put("/api/bonde/rounds")
 async def update_round(data: dict):
     # Connect to the database
-    # try:
-    cursor = connection.cursor()
+    try:
+        cursor = connection.cursor()
 
-    # # Update the rounds table
-    # cursor.execute(
-    #     "UPDATE rounds SET num_cards = %s, dealer_index = %s, locked = %s WHERE round_id = %s",
-    #     (
-    #         roundData["num_cards"],
-    #         roundData["dealer_index"],
-    #         roundData["locked"],
-    #         round_id,
-    #     ),
-    # )
-    # Update player_scores
-    print(data)
-    for round in data["rounds"]:
-        for player_score in round["player_scores"]:
-            cursor.execute(
-                "UPDATE player_scores SET num_tricks = %s, stand = %s WHERE player_scores_id = %s",
-                (
-                    player_score["num_tricks"],
-                    player_score["stand"],
-                    player_score["player_scores_id"],
-                ),
-            )
-    connection.commit()
-    # except Exception as e:
-    #     return HTTPException(
-    #         status_code=500, detail="Something wrong. Could not update round"
-    #     )
+        # # Update the rounds table
+        # cursor.execute(
+        #     "UPDATE rounds SET num_cards = %s, dealer_index = %s, locked = %s WHERE round_id = %s",
+        #     (
+        #         roundData["num_cards"],
+        #         roundData["dealer_index"],
+        #         roundData["locked"],
+        #         round_id,
+        #     ),
+        # )
+        # Update player_scores
+        for round in data["rounds"]:
+            for player_score in round["player_scores"]:
+                cursor.execute(
+                    "UPDATE player_scores SET num_tricks = %s, stand = %s WHERE player_scores_id = %s",
+                    (
+                        player_score["num_tricks"],
+                        player_score["stand"],
+                        player_score["player_scores_id"],
+                    ),
+                )
+        connection.commit()
+    except Exception as e:
+        return HTTPException(
+            status_code=500, detail="Something wrong. Could not update round"
+        )
 
     return {"message": "Round updated successfully"}
 
@@ -1018,27 +1389,28 @@ async def update_round(data: dict):
 @api_router.put("/api/bonde/playerdata")
 async def update_player_scores(data: dict):
     # Connect to the database
-    # try:
-    print(data)
-    cursor = connection.cursor()
+    try:
+        cursor = connection.cursor()
 
-    # Update player_scores
-    for player in data["playerData"]:
-        try:
-            cursor.execute(
-                "UPDATE game_players SET score = %s WHERE game_player_id = %s",
-                (
-                    player["score"],
-                    player["game_player_id"],
-                ),
-            )
-        except KeyError:
-            print("KeyError")
-    connection.commit()
-    # except Exception as e:
-    #     return HTTPException(
-    #         status_code=500, detail="Something wrong. Could not update player scores"
-    #     )
+        # Update player_scores
+        for player in data["playerData"]:
+            try:
+                cursor.execute(
+                    "UPDATE game_players SET score = %s, warnings = %s, bleedings = %s WHERE game_player_id = %s",
+                    (
+                        player["score"],
+                        player["warnings"],
+                        player["bleedings"],
+                        player["game_player_id"],
+                    ),
+                )
+            except KeyError:
+                print("KeyError")
+        connection.commit()
+    except Exception as e:
+        return HTTPException(
+            status_code=500, detail="Something wrong. Could not update player scores"
+        )
 
     return {"message": "Player scores updated successfully"}
 
