@@ -32,8 +32,6 @@ import {
   GamePlayer,
   PlayerPreGame,
   Stats,
-  SimplePieChartProps,
-  PositiveAndNegativeBarChartProps,
 } from "../../types";
 import { useAppSelector } from "../../redux/hooks";
 import { selectPath } from "../../redux/envSlice";
@@ -102,7 +100,7 @@ export default function BondeBridgeHome() {
   const [moneyMultiplier, setMoneyMultiplier] = useState<number | null>(2);
   const [extraCostLoser, setExtraCostLoser] = useState<number | null>(100);
   const [extraCostSecondLast, setExtraCostSecondLast] = useState<number | null>(
-    50
+    50,
   );
 
   const [numTenRounds, setNumTenRounds] = useState<number | null>(5);
@@ -162,6 +160,11 @@ export default function BondeBridgeHome() {
 
       // Steps 2 and 3: Generate rounds and send them to the backend
       let tempRounds = generateRounds(); // Function to generate empty rounds
+      console.log({
+        game_id: game_id,
+        rounds: tempRounds,
+        game_player_ids: game_player_ids.sort(),
+      });
       const roundsResponse = await fetch(`${url_path}api/bonde/rounds`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -380,7 +383,7 @@ export default function BondeBridgeHome() {
   };
 
   const handleStandSwitchChange = (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     setOnlyStandRounds(event.target.checked);
   };
@@ -410,7 +413,7 @@ export default function BondeBridgeHome() {
   // SUCCESS SNACKBAR
   const Alert = React.forwardRef<HTMLDivElement, AlertProps>(function Alert(
     props,
-    ref
+    ref,
   ) {
     return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
   });
@@ -429,7 +432,7 @@ export default function BondeBridgeHome() {
 
   const handleSnackClose = (
     event?: React.SyntheticEvent | Event,
-    reason?: string
+    reason?: string,
   ) => {
     if (reason === "clickaway") {
       return;
@@ -680,8 +683,8 @@ export default function BondeBridgeHome() {
                     onChange={(event: SelectChangeEvent) => {
                       setDealerIndex(
                         players.findIndex(
-                          (player) => player.nickname === event.target.value
-                        )
+                          (player) => player.nickname === event.target.value,
+                        ),
                       );
                     }}
                   >
@@ -781,7 +784,7 @@ export default function BondeBridgeHome() {
                 options={sortedUsers}
                 getOptionLabel={(option) => option.nickname}
                 value={users.filter((user) =>
-                  selectedUserIDs.includes(user.player_id)
+                  selectedUserIDs.includes(user.player_id),
                 )}
                 onChange={(_, newValue) => {
                   setSelectedUserIDs(newValue.map((user) => user.player_id));
@@ -883,7 +886,8 @@ export default function BondeBridgeHome() {
               <>
                 <br />
                 <Alert severity="info">
-                  Det finnes ingen spill med disse spillerne involvert samtidig.
+                  Det finnes ingen fullførte spill med disse spillerne involvert
+                  samtidig.
                 </Alert>
               </>
             ) : (

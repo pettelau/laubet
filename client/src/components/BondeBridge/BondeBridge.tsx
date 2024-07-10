@@ -46,6 +46,7 @@ import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import PlayerCard from "./PlayerCard";
 import { BleedingsTable } from "./StatsCharts";
+import { getInitials } from "./helperFunctions";
 
 const style = {
   position: "absolute" as "absolute",
@@ -84,11 +85,13 @@ export default function BondeBridge() {
 
   const [currentGame, setCurrentGame] = useState<Game>();
 
-  const [reBitState, setReBidState] = useState<boolean>(false);
+  const [reBidState, setReBidState] = useState<boolean>(false);
 
   const [blueberryMode, setBlueberryMode] = useState<boolean>(false);
 
   const [players, setPlayers] = useState<Player[]>([]);
+
+  const [initials, setInitials] = useState<Record<number, string>>({});
 
   const [prizes, setPrizes] = useState<Prizes>();
 
@@ -100,7 +103,7 @@ export default function BondeBridge() {
   const [dealerIndex, setDealerIndex] = useState<number>(0);
 
   const [selectedRoundIndex, setSelectedRoundIndex] = useState<number | null>(
-    null
+    null,
   );
 
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
@@ -115,8 +118,8 @@ export default function BondeBridge() {
     if (selectedRoundIndex !== null) {
       setTrickInputs(
         rounds[selectedRoundIndex].player_scores.map((ps) =>
-          ps.num_tricks !== null ? ps.num_tricks.toString() : ""
-        )
+          ps.num_tricks !== null ? ps.num_tricks.toString() : "",
+        ),
       );
     }
   }, [selectedRoundIndex, rounds]);
@@ -131,7 +134,7 @@ export default function BondeBridge() {
     handleTrickChange(
       value === "" ? 0 : Number(value),
       selectedRoundIndex as number, // TypeScript cast since we check for null before
-      playerIndex
+      playerIndex,
     );
   };
 
@@ -145,8 +148,8 @@ export default function BondeBridge() {
                 ? player.warnings + 1
                 : Math.max(player.warnings - 1, 0),
             }
-          : player
-      )
+          : player,
+      ),
     );
   };
 
@@ -160,8 +163,8 @@ export default function BondeBridge() {
                 ? player.bleedings + 1
                 : Math.max(player.bleedings - 1, 0),
             }
-          : player
-      )
+          : player,
+      ),
     );
   };
 
@@ -177,9 +180,9 @@ export default function BondeBridge() {
   function handleTrickChange(
     newNumTricks: string | number | null,
     roundIndex: number,
-    playerIndex: number
+    playerIndex: number,
   ) {
-    if (reBitState) {
+    if (reBidState) {
       // setReBidState(false);
       setRounds((prev) => {
         const newRounds = [...prev];
@@ -209,7 +212,7 @@ export default function BondeBridge() {
   function handleStandChange(
     newStandStatus: boolean,
     roundIndex: number,
-    playerIndex: number
+    playerIndex: number,
   ) {
     setRounds((prevRounds) => {
       const newRounds = [...prevRounds];
@@ -331,14 +334,14 @@ export default function BondeBridge() {
           consecutiveFails += 1;
           consecutiveStands = 0;
         }
-        if (consecutiveFails == 3) {
+        if (consecutiveFails === 3) {
           playerScore -= 10;
-        } else if (consecutiveFails == 6) {
+        } else if (consecutiveFails === 6) {
           playerScore -= 30;
-        } else if (consecutiveFails == 9) {
+        } else if (consecutiveFails === 9) {
           playerScore -= 50;
         }
-        if (consecutiveStands == 8) {
+        if (consecutiveStands === 8) {
           playerScore += 30;
           if (
             j === currentRoundIndex &&
@@ -346,7 +349,7 @@ export default function BondeBridge() {
           ) {
             setShouldShowGif(true);
           }
-        } else if (consecutiveStands == 12) {
+        } else if (consecutiveStands === 12) {
           playerScore += 30;
           if (
             j === currentRoundIndex &&
@@ -354,7 +357,7 @@ export default function BondeBridge() {
           ) {
             setShouldShowGif(true);
           }
-        } else if (consecutiveStands == 16) {
+        } else if (consecutiveStands === 16) {
           playerScore += 30;
           if (
             j === currentRoundIndex &&
@@ -362,7 +365,7 @@ export default function BondeBridge() {
           ) {
             setShouldShowGif(true);
           }
-        } else if (consecutiveStands == 20) {
+        } else if (consecutiveStands === 20) {
           playerScore += 30;
           if (
             j === currentRoundIndex &&
@@ -380,7 +383,7 @@ export default function BondeBridge() {
           playerScore -
           Math.floor(
             newPlayers.sort((a, b) => a.game_player_id - b.game_player_id)[i]
-              .warnings / 2
+              .warnings / 2,
           ) *
             10;
         return newPlayers;
@@ -397,7 +400,8 @@ export default function BondeBridge() {
 
     let loopTo = halfway
       ? Math.min(currentRoundIndex, sortedRounds.length / 2)
-      : currentRoundIndex + 1;
+      : sortedRounds.length;
+
     for (let j = 0; j < loopTo; j++) {
       if (sortedRounds[j].player_scores[i].stand === null) {
         break;
@@ -411,20 +415,32 @@ export default function BondeBridge() {
         consecutiveFails += 1;
         consecutiveStands = 0;
       }
-      if (consecutiveFails == 3) {
+      if (consecutiveFails === 3) {
         playerScore -= 10;
-      } else if (consecutiveFails == 6) {
+      } else if (consecutiveFails === 6) {
         playerScore -= 30;
-      } else if (consecutiveFails == 9) {
+      } else if (consecutiveFails === 9) {
         playerScore -= 50;
+      } else if (consecutiveFails === 12) {
+        playerScore -= 80;
+      } else if (consecutiveFails === 15) {
+        playerScore -= 110;
+      } else if (consecutiveFails === 18) {
+        playerScore -= 140;
+      } else if (consecutiveFails === 21) {
+        playerScore -= 170;
+      } else if (consecutiveFails === 24) {
+        playerScore -= 200;
       }
-      if (consecutiveStands == 8) {
+      if (consecutiveStands === 8) {
         playerScore += 30;
-      } else if (consecutiveStands == 12) {
+      } else if (consecutiveStands === 12) {
         playerScore += 30;
-      } else if (consecutiveStands == 16) {
+      } else if (consecutiveStands === 16) {
         playerScore += 30;
-      } else if (consecutiveStands == 20) {
+      } else if (consecutiveStands === 20) {
+        playerScore += 30;
+      } else if (consecutiveStands === 24) {
         playerScore += 30;
       }
     }
@@ -432,7 +448,7 @@ export default function BondeBridge() {
       playerScore -
       Math.floor(
         players.sort((a, b) => a.game_player_id - b.game_player_id)[i]
-          .warnings / 2
+          .warnings / 2,
       ) *
         10;
     return playerScore;
@@ -468,20 +484,34 @@ export default function BondeBridge() {
   const fetchGame = async () => {
     try {
       const response = await fetch(`${url_path}api/bonde/game/${GAME_ID}`);
+
+      if (response.status === 404) {
+        setError("Spillet finnes ikke.");
+        return;
+      }
+
+      if (!response.ok) {
+        setError("Noe gikk galt. Kunne ikke hente nåværende spill");
+        return;
+      }
+
       const data = await response.json();
-      setCurrentGame(data.game[0]);
+
+      setCurrentGame(data.game);
       setRounds(data.rounds);
       setPlayers(data.players);
+      setInitials(getInitials(data.players));
 
       let lastIndex = 0;
 
-      if (data.game[0].status === "finished") {
+      if (data.game.status === "finished") {
         setCurrentRoundIndex(data.rounds.length - 1);
       } else {
         for (let i = 0; i < data.rounds.length; i++) {
           const round = data.rounds[i];
           const isSettled = round.player_scores.every(
-            (playerScore: PlayerScore) => typeof playerScore.stand === "boolean"
+            (playerScore: PlayerScore) =>
+              typeof playerScore.stand === "boolean",
           );
 
           if (isSettled) {
@@ -521,7 +551,7 @@ export default function BondeBridge() {
     if (rounds[currentRoundIndex] !== undefined) {
       if (
         rounds[currentRoundIndex].player_scores.every(
-          (score) => score.stand === true
+          (score) => score.stand === true,
         )
       ) {
         setAlertOpen(true);
@@ -607,7 +637,7 @@ export default function BondeBridge() {
 
         if (!response.ok) {
           throw new Error(
-            `Failed to update player scores: ${response.statusText}`
+            `Failed to update player scores: ${response.statusText}`,
           );
         }
 
@@ -620,12 +650,15 @@ export default function BondeBridge() {
 
   async function completeGame(game_id: number) {
     try {
-      const response = await fetch(`${url_path}api/game/complete/${game_id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${url_path}api/bonde/game/complete/${game_id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`${response.statusText}`);
@@ -684,7 +717,7 @@ export default function BondeBridge() {
   const getConsecutiveStands = (
     playerIndex: number,
     currentRoundIndex: number,
-    rounds: Round[]
+    rounds: Round[],
   ) => {
     let consecutiveStands = 0;
     for (let i = currentRoundIndex; i >= 0; i--) {
@@ -693,6 +726,14 @@ export default function BondeBridge() {
     }
     return consecutiveStands;
   };
+
+  if (error) {
+    return (
+      <div style={{ paddingTop: "20px" }} id="rules">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -723,7 +764,7 @@ export default function BondeBridge() {
                     <TableCell></TableCell>
                     {players
                       .sort((a, b) => a.game_player_id - b.game_player_id)
-                      .map((player: Player) => {
+                      .map((player: Player, index: number) => {
                         return (
                           <>
                             <TableCell align="center" sx={{ padding: 0.5 }}>
@@ -731,7 +772,7 @@ export default function BondeBridge() {
                                 onClick={() =>
                                   updateWarningsForPlayer(
                                     player.player_id,
-                                    true
+                                    true,
                                   )
                                 }
                                 style={{
@@ -754,7 +795,7 @@ export default function BondeBridge() {
                                 onClick={() =>
                                   updateBleedingsForPlayer(
                                     player.player_id,
-                                    true
+                                    true,
                                   )
                                 }
                                 style={{
@@ -831,7 +872,7 @@ export default function BondeBridge() {
                                         onClick={() =>
                                           updateWarningsForPlayer(
                                             player.player_id,
-                                            false
+                                            false,
                                           )
                                         }
                                         key={index}
@@ -856,7 +897,7 @@ export default function BondeBridge() {
                                         onClick={() =>
                                           updateBleedingsForPlayer(
                                             player.player_id,
-                                            false
+                                            false,
                                           )
                                         }
                                         key={index}
@@ -926,7 +967,7 @@ export default function BondeBridge() {
                               const consecutiveStands = getConsecutiveStands(
                                 playerIndex,
                                 roundIndex,
-                                rounds
+                                rounds,
                               );
                               const backgroundColor =
                                 score.stand === false
@@ -941,6 +982,7 @@ export default function BondeBridge() {
                                   <TableCell
                                     align="center"
                                     sx={{
+                                      borderRadius: "10px",
                                       height: 53,
                                       padding: 0,
                                       width: 300,
@@ -957,7 +999,7 @@ export default function BondeBridge() {
                                           id="button-bonde"
                                           disabled={
                                             round.locked ||
-                                            (reBitState &&
+                                            (reBidState &&
                                               round.dealer_index !==
                                                 playerIndex) ||
                                             numTricks <= 0
@@ -966,7 +1008,7 @@ export default function BondeBridge() {
                                             handleTrickChange(
                                               numTricks - 1,
                                               roundIndex,
-                                              playerIndex
+                                              playerIndex,
                                             )
                                           }
                                         >
@@ -977,7 +1019,7 @@ export default function BondeBridge() {
                                           id="button-bonde"
                                           disabled={
                                             round.locked ||
-                                            (reBitState &&
+                                            (reBidState &&
                                               round.dealer_index !==
                                                 playerIndex) ||
                                             numTricks >= round.num_cards
@@ -986,7 +1028,7 @@ export default function BondeBridge() {
                                             handleTrickChange(
                                               numTricks + 1,
                                               roundIndex,
-                                              playerIndex
+                                              playerIndex,
                                             )
                                           }
                                         >
@@ -1010,7 +1052,7 @@ export default function BondeBridge() {
                                   </TableCell>
                                 </>
                               );
-                            }
+                            },
                           )}
                           {currentRoundIndex === roundIndex &&
                           currentGame?.status === "in-progress" ? (
@@ -1048,22 +1090,20 @@ export default function BondeBridge() {
                                       {round.player_scores.reduce(
                                         (total, playerScore) =>
                                           total + (playerScore.num_tricks || 0),
-                                        0
+                                        0,
                                       ) > round.num_cards ? (
                                         <div
                                           style={{
+                                            borderRadius: "10px",
                                             backgroundColor:
                                               "rgba(255, 178, 64, 0.7)",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "right",
                                           }}
                                         >
                                           {round.player_scores.reduce(
                                             (total, playerScore) =>
                                               total +
                                               (playerScore.num_tricks || 0),
-                                            0
+                                            0,
                                           ) - round.num_cards}{" "}
                                           ⬆
                                         </div>
@@ -1072,9 +1112,6 @@ export default function BondeBridge() {
                                           style={{
                                             backgroundColor:
                                               "rgba(173, 216, 230, 0.7)",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "right",
                                           }}
                                         >
                                           {round.num_cards -
@@ -1082,7 +1119,7 @@ export default function BondeBridge() {
                                               (total, playerScore) =>
                                                 total +
                                                 (playerScore.num_tricks || 0),
-                                              0
+                                              0,
                                             )}{" "}
                                           ⬇
                                         </div>
@@ -1113,26 +1150,25 @@ export default function BondeBridge() {
                           ) : (
                             <TableCell>
                               {round.player_scores.some(
-                                (playerScore) => playerScore.stand === null
+                                (playerScore) => playerScore.stand === null,
                               ) ? (
                                 ""
                               ) : round.player_scores.reduce(
                                   (total, playerScore) =>
                                     total + (playerScore.num_tricks || 0),
-                                  0
+                                  0,
                                 ) > round.num_cards ? (
                                 <div
                                   style={{
                                     backgroundColor: "rgba(255, 178, 64, 0.7)",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "right",
+                                    textAlign: "center",
+                                    borderRadius: "6px",
                                   }}
                                 >
                                   {round.player_scores.reduce(
                                     (total, playerScore) =>
                                       total + (playerScore.num_tricks || 0),
-                                    0
+                                    0,
                                   ) - round.num_cards}{" "}
                                   ⬆
                                 </div>
@@ -1140,16 +1176,15 @@ export default function BondeBridge() {
                                 <div
                                   style={{
                                     backgroundColor: "rgba(173, 216, 230, 0.7)",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "right",
+                                    textAlign: "center",
+                                    borderRadius: "6px",
                                   }}
                                 >
                                   {round.num_cards -
                                     round.player_scores.reduce(
                                       (total, playerScore) =>
                                         total + (playerScore.num_tricks || 0),
-                                      0
+                                      0,
                                     )}{" "}
                                   ⬇
                                 </div>
@@ -1157,9 +1192,7 @@ export default function BondeBridge() {
                             </TableCell>
                           )}
                           <TableCell>
-                            {players[
-                              rounds[roundIndex].dealer_index
-                            ].nickname[0].toUpperCase()}
+                            {initials[rounds[roundIndex].dealer_index]}
                           </TableCell>
                         </TableRow>
                         {roundIndex + 1 === rounds.length ? (
@@ -1262,12 +1295,13 @@ export default function BondeBridge() {
                           <>
                             <div style={{ marginBottom: "10px" }}>
                               <Checkbox
+                                disableTouchRipple
                                 checked={!!player.stand}
                                 onChange={(event) => {
                                   handleStandChange(
                                     event.target.checked,
                                     currentRoundIndex,
-                                    index
+                                    index,
                                   );
                                 }}
                               />{" "}
@@ -1275,7 +1309,7 @@ export default function BondeBridge() {
                                 {
                                   players.sort(
                                     (a, b) =>
-                                      a.game_player_id - b.game_player_id
+                                      a.game_player_id - b.game_player_id,
                                   )[index].nickname
                                 }
                               </b>
@@ -1283,7 +1317,7 @@ export default function BondeBridge() {
                             </div>
                           </>
                         );
-                      }
+                      },
                     )
                   : ""}
               </div>
@@ -1404,7 +1438,7 @@ export default function BondeBridge() {
                       type="number"
                       label={`${
                         players.sort(
-                          (a, b) => a.game_player_id - b.game_player_id
+                          (a, b) => a.game_player_id - b.game_player_id,
                         )[index].nickname
                       }`}
                       value={trickInputs[index] || ""}
@@ -1416,14 +1450,30 @@ export default function BondeBridge() {
                         handleStandChange(
                           e.target.checked,
                           selectedRoundIndex,
-                          index
+                          index,
                         )
                       }
                     />
                   </div>
-                )
+                ),
               )}
             <br />
+            {reBidState && (
+              <>
+                <Button
+                  color="warning"
+                  variant="outlined"
+                  onClick={() => {
+                    setReBidState(false);
+                    setEditModalOpen(false);
+                  }}
+                >
+                  Kanseller dealer opp/ned-lås
+                </Button>
+                <br />
+                <br />
+              </>
+            )}
             <Button
               variant="contained"
               onClick={() => {

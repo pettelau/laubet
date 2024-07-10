@@ -1,27 +1,22 @@
 import React from "react";
 import "./App.css";
-// import { HashRouter as Router, Routes, Route } from "react-router-dom";
 
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Home from "./components/Home";
-// import Login from "./components/Login";
-import NavBar from "./components/Nav";
-// import UserReg from "./components/UserReg";
+
 import { Provider } from "react-redux";
 import { store } from "./redux/store";
 import { useEffect } from "react";
-import { setUserDetails, setUsername } from "./redux/userSlice";
+import { setUserDetails } from "./redux/userSlice";
 import BettingHome from "./components/Betting/BettingHome";
 import MyAccums from "./components/Betting/MyAccums";
 import Accumulator from "./components/Betting/Accumulator";
 import Login from "./components/Login";
 import UserReg from "./components/UserReg";
 import AppAppBar from "./components/AppAppBar";
-import { createTheme, ThemeProvider, styled } from "@mui/material/styles";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
-import { useAppDispatch, useAppSelector } from "./redux/hooks";
-import { selectPath } from "./redux/envSlice";
 import AdminHome from "./components/Admin/AdminHome";
 import NewBet from "./components/Admin/NewBet";
 import EditBet from "./components/Admin/EditBet";
@@ -60,8 +55,8 @@ const THEME = createTheme({
 });
 
 export default function App() {
-  const url_path = "/";
-  // const url_path = "http://localhost:8000/";
+  // const url_path = "/";
+  const url_path = "http://localhost:8000/";
 
   async function loginDetails() {
     const response = await fetch(`${url_path}api/login/details`, {
@@ -69,11 +64,11 @@ export default function App() {
     });
     const resp = await response.json();
     // dispatch(setUsername(user.toLowerCase()));
-    store.dispatch(setUserDetails(resp[0]));
+    store.dispatch(setUserDetails(resp));
   }
 
   useEffect(() => {
-    if (localStorage.getItem("jwt") !== "") {
+    if (localStorage.getItem("jwt") !== null) {
       loginDetails();
     }
   }, []);
