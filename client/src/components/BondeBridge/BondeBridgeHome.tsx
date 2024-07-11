@@ -109,7 +109,7 @@ export default function BondeBridgeHome() {
     50,
   );
 
-  const [numTenRounds, setNumTenRounds] = useState<number | null>(5);
+  const [numTenRounds, setNumTenRounds] = useState<number | null>(3);
   const [numNineRounds, setNumNineRounds] = useState<number | null>(2);
 
   const [stats, setStats] = useState<Stats>();
