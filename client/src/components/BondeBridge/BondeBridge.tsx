@@ -745,7 +745,7 @@ export default function BondeBridge() {
             {showGif && (
               <div className="modalOverlay">
                 <img
-                  src={`/bm${Math.floor(Math.random() * 17) + 1}.gif`}
+                  src={`/bm${Math.floor(Math.random() * 24) + 1}.gif`}
                   alt="Description of GIF"
                 />
               </div>

@@ -100,7 +100,7 @@ function Login() {
       headers: { Authorization: `Bearer ${localStorage.getItem("jwt")}` },
     });
     const resp = await response.json();
-    dispatch(setUserDetails(resp[0]));
+    dispatch(setUserDetails(resp));
   }
 
   useEffect(() => {

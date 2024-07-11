@@ -422,7 +422,7 @@ async def add_user(
     ).safe_substitute({"user_id": token["user_id"]})
     cursor.execute(inc_numb_logins)
     connection.commit()
-    return res
+    return res[0]
 
 
 @api_router.get("/api/admin/users")
@@ -800,7 +800,6 @@ class UserCreate(BaseModel):
     password: str
     firstname: str
     lastname: str
-
 
 
 @api_router.post("/api/createUser")

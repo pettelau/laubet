@@ -8,7 +8,7 @@ import Home from "./components/Home";
 import { Provider } from "react-redux";
 import { store } from "./redux/store";
 import { useEffect } from "react";
-import { setUserDetails } from "./redux/userSlice";
+import { selectUsername, setUserDetails } from "./redux/userSlice";
 import BettingHome from "./components/Betting/BettingHome";
 import MyAccums from "./components/Betting/MyAccums";
 import Accumulator from "./components/Betting/Accumulator";
@@ -28,6 +28,7 @@ import UserProfile from "./components/UserProfile";
 import Competition from "./components/Competition";
 import BondeBridge from "./components/BondeBridge/BondeBridge";
 import BondeBridgeHome from "./components/BondeBridge/BondeBridgeHome";
+import { useAppSelector } from "./redux/hooks";
 
 const THEME = createTheme({
   typography: {
@@ -71,7 +72,6 @@ export default function App() {
       headers: { Authorization: `Bearer ${localStorage.getItem("jwt")}` },
     });
     const resp = await response.json();
-    // dispatch(setUsername(user.toLowerCase()));
     store.dispatch(setUserDetails(resp));
   }
 
