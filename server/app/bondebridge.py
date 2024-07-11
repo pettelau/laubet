@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Query, Response
+from datetime import datetime, timedelta
 
 from db_instance import database
 
@@ -58,7 +59,7 @@ async def add_player(player: dict):
 
 
 @bb_router.get("/games")
-async def get_users():
+async def get_games():
     games_query = "SELECT * FROM games ORDER BY game_id DESC;"
     try:
         games = await database.fetch_all(games_query)
@@ -161,7 +162,8 @@ async def get_game(game_id: int):
 
 @bb_router.get("/users")
 async def get_users():
-    query = "SELECT player_id, nickname FROM bonde_users;"
+    query = "SELECT player_id, nickname, favorite FROM bonde_users"
+
     try:
         users = await database.fetch_all(query)
     except Exception as e:
@@ -363,153 +365,215 @@ async def update_round(game_id: int):
 ## STATISTICS
 
 
-async def calc_player_earnings(playerIds: Optional[str]):
-    try:
-        game_ids_query = "SELECT game_id, money_multiplier, extra_cost_loser, extra_cost_second_last FROM games WHERE status = 'finished'"
-        games = await database.fetch_all(game_ids_query)
+async def calc_player_earnings(
+    playerIds: Optional[str],
+    onlyFavorite: bool = False,
+    from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
+):
+    # try:
+    # Build the initial query with possible date filtering
+    date_filter = ""
+    if from_date and to_date:
+        to_date_plus_one = to_date + timedelta(days=1)
+        date_filter = f" AND created_on >= '{from_date.strftime('%Y-%m-%d')}' AND created_on < '{to_date_plus_one.strftime('%Y-%m-%d')}'"
+    elif from_date:
+        date_filter = f" AND created_on >= '{from_date.strftime('%Y-%m-%d')}'"
+    elif to_date:
+        to_date_plus_one = to_date + timedelta(days=1)
+        date_filter = f" AND created_on < '{to_date_plus_one.strftime('%Y-%m-%d')}'"
 
-        player_earnings = dict()  # Format {1: -40, 2: 54, 3: 187 ...}
-        player_nicknames = dict()  # To store player_id to nickname mapping
+    game_ids_query = f"SELECT game_id, money_multiplier, extra_cost_loser, extra_cost_second_last FROM games WHERE status = 'finished'{date_filter}"
+    print(from_date)
+    print(to_date)
+    print(game_ids_query)
+    games = await database.fetch_all(game_ids_query)
 
-        for game in games:
-            players_query = """
-                SELECT score, bonde_users.player_id, nickname
-                FROM game_players
-                LEFT JOIN bonde_users ON game_players.player_id = bonde_users.player_id
-                WHERE game_id = :game_id
-            """
-            players = await database.fetch_all(
-                players_query, {"game_id": game["game_id"]}
-            )
+    player_earnings = dict()  # Format {1: -40, 2: 54, 3: 187 ...}
+    player_nicknames = dict()  # To store player_id to nickname mapping
+    player_games_count = (
+        dict()
+    )  # To store the number of games each player participated in
 
-            # Update player_nicknames dictionary
-            for player in players:
-                player_nicknames[player["player_id"]] = player["nickname"]
+    for game in games:
+        players_query = """
+            SELECT score, bonde_users.player_id, nickname, favorite
+            FROM game_players
+            LEFT JOIN bonde_users ON game_players.player_id = bonde_users.player_id
+            WHERE game_id = :game_id
+        """
+        players = await database.fetch_all(players_query, {"game_id": game["game_id"]})
 
-            player_ids_list = playerIds.split(",") if playerIds else None
-            game_player_ids = [str(player["player_id"]) for player in players]
+        # Update player_nicknames dictionary
+        for player in players:
+            player_nicknames[player["player_id"]] = player["nickname"]
 
-            if player_ids_list is None or set(player_ids_list) == set(game_player_ids):
-                # Sort players by scores
-                players.sort(key=lambda x: x["score"], reverse=True)
+        if onlyFavorite:
+            if not all(player["favorite"] for player in players):
+                continue  # Skip this game if not all players are favorites
 
-                if len(players) < 4:
-                    continue
-                # Calculate earnings/losses
-                first_place, last_place = players[0], players[-1]
-                second_place, second_last_place = players[1], players[-2]
+        player_ids_list = playerIds.split(",") if playerIds else None
+        game_player_ids = [str(player["player_id"]) for player in players]
 
-                # Initialize earnings and losses
-                first_place_earnings = second_place_earnings = 0
-                last_place_earnings = second_last_earnings = 0
+        if player_ids_list is None or set(player_ids_list) == set(game_player_ids):
+            # Sort players by scores
+            players.sort(key=lambda x: x["score"], reverse=True)
 
-                # Check for ties between first and second, and last and second last
-                if first_place["score"] == second_place["score"]:
-                    # If first and second place tie, split combined earnings
-                    total_earnings = (
-                        (first_place["score"] - last_place["score"])
-                        * game["money_multiplier"]
-                        + game["extra_cost_loser"]
-                    ) + (
-                        (second_place["score"] - second_last_place["score"])
-                        * game["money_multiplier"]
-                        + game["extra_cost_second_last"]
-                    )
-                    first_place_earnings = second_place_earnings = total_earnings / 2
-                else:
-                    # Calculate earnings for first and second places normally
-                    first_place_earnings = (
-                        first_place["score"] - last_place["score"]
-                    ) * game["money_multiplier"] + game["extra_cost_loser"]
-                    second_place_earnings = (
-                        second_place["score"] - second_last_place["score"]
-                    ) * game["money_multiplier"] + game["extra_cost_second_last"]
-
-                if last_place["score"] == second_last_place["score"]:
-                    # If last and second last tie, split the total losses
-                    total_loss = -(first_place_earnings + second_place_earnings)
-                    last_place_earnings = second_last_earnings = total_loss / 2
-                else:
-                    last_place_earnings = -first_place_earnings
-                    second_last_earnings = -second_place_earnings
-
-                # Special edge cases
-                if (
-                    first_place["score"]
-                    == second_place["score"]
-                    == second_last_place["score"]
-                    == last_place["score"]
-                ):
-                    first_place_earnings = second_place_earnings = (
-                        second_last_earnings
-                    ) = last_place_earnings = 0
-                elif (
-                    first_place["score"]
-                    == second_place["score"]
-                    == second_last_place["score"]
-                ):
-                    first_place_earnings = second_place_earnings = (
-                        second_last_earnings
-                    ) = (last_place_earnings / 3)
-                elif (
-                    second_place["score"]
-                    == second_last_place["score"]
-                    == last_place["score"]
-                ):
-                    second_place_earnings = second_last_earnings = (
-                        last_place_earnings
-                    ) = 0
-                if second_last_place["score"] == second_place["score"]:
-                    second_last_earnings = second_place_earnings = 0
-
-                # Update player_earnings
-                for player in players:
-                    player_id = player["player_id"]
-                    if player_id == first_place["player_id"]:
-                        earnings = first_place_earnings
-                    elif player_id == last_place["player_id"]:
-                        earnings = last_place_earnings
-                    elif player_id == second_place["player_id"]:
-                        earnings = second_place_earnings
-                    elif player_id == second_last_place["player_id"]:
-                        earnings = second_last_earnings
-                    else:
-                        earnings = 0  # For players not in first, second, last, or second last place
-
-                    if player_id in player_earnings:
-                        player_earnings[player_id] += earnings
-                    else:
-                        player_earnings[player_id] = earnings
-            else:
+            if len(players) < 4:
                 continue
+            # Calculate earnings/losses
+            first_place, last_place = players[0], players[-1]
+            second_place, second_last_place = players[1], players[-2]
 
-        # Swap player_id with nickname
-        final_earnings = {
-            player_nicknames[player_id]: earnings
-            for player_id, earnings in player_earnings.items()
-            if player_id in player_nicknames
+            # Initialize earnings and losses
+            first_place_earnings = second_place_earnings = 0
+            last_place_earnings = second_last_earnings = 0
+
+            # Check for ties between first and second, and last and second last
+            if first_place["score"] == second_place["score"]:
+                # If first and second place tie, split combined earnings
+                total_earnings = (
+                    (first_place["score"] - last_place["score"])
+                    * game["money_multiplier"]
+                    + game["extra_cost_loser"]
+                ) + (
+                    (second_place["score"] - second_last_place["score"])
+                    * game["money_multiplier"]
+                    + game["extra_cost_second_last"]
+                )
+                first_place_earnings = second_place_earnings = total_earnings / 2
+            else:
+                # Calculate earnings for first and second places normally
+                first_place_earnings = (
+                    first_place["score"] - last_place["score"]
+                ) * game["money_multiplier"] + game["extra_cost_loser"]
+                second_place_earnings = (
+                    second_place["score"] - second_last_place["score"]
+                ) * game["money_multiplier"] + game["extra_cost_second_last"]
+
+            if last_place["score"] == second_last_place["score"]:
+                # If last and second last tie, split the total losses
+                total_loss = -(first_place_earnings + second_place_earnings)
+                last_place_earnings = second_last_earnings = total_loss / 2
+            else:
+                last_place_earnings = -first_place_earnings
+                second_last_earnings = -second_place_earnings
+
+            # Special edge cases
+            if (
+                first_place["score"]
+                == second_place["score"]
+                == second_last_place["score"]
+                == last_place["score"]
+            ):
+                first_place_earnings = second_place_earnings = second_last_earnings = (
+                    last_place_earnings
+                ) = 0
+            elif (
+                first_place["score"]
+                == second_place["score"]
+                == second_last_place["score"]
+            ):
+                first_place_earnings = second_place_earnings = second_last_earnings = (
+                    last_place_earnings / 3
+                )
+            elif (
+                second_place["score"]
+                == second_last_place["score"]
+                == last_place["score"]
+            ):
+                second_place_earnings = second_last_earnings = last_place_earnings = 0
+            if second_last_place["score"] == second_place["score"]:
+                second_last_earnings = second_place_earnings = 0
+
+            # Update player_earnings and player_games_count
+            for player in players:
+                player_id = player["player_id"]
+                if player_id == first_place["player_id"]:
+                    earnings = first_place_earnings
+                elif player_id == last_place["player_id"]:
+                    earnings = last_place_earnings
+                elif player_id == second_place["player_id"]:
+                    earnings = second_place_earnings
+                elif player_id == second_last_place["player_id"]:
+                    earnings = second_last_earnings
+                else:
+                    earnings = 0  # For players not in first, second, last, or second last place
+
+                if player_id in player_earnings:
+                    player_earnings[player_id] += earnings
+                    player_games_count[player_id] += 1
+                else:
+                    player_earnings[player_id] = earnings
+                    player_games_count[player_id] = 1
+        else:
+            continue
+
+    # Calculate average earnings per game
+    avg_earnings = {
+        player_id: (player_earnings[player_id] / player_games_count[player_id])
+        for player_id in player_earnings
+    }
+
+    # Swap player_id with nickname
+    final_earnings = {
+        player_nicknames[player_id]: {
+            "total_earnings": earnings,
+            "num_games": player_games_count[player_id],
+            "avg_earnings": avg_earnings[player_id],
         }
+        for player_id, earnings in player_earnings.items()
+        if player_id in player_nicknames
+    }
 
-        return final_earnings
+    return final_earnings
 
-    except Exception as e:
-        print(f"Error calculating player earnings: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail=f"Error calculating player earnings: {e}"
-        )
+    # except Exception as e:
+    #     print(f"Error calculating player earnings: {str(e)}")
+    #     raise HTTPException(
+    #         status_code=500, detail=f"Error calculating player earnings: {e}"
+    #     )
 
 
 @bb_router.get("/stats")
 async def get_stats(
-    playerIds: Optional[str] = None, exclusiveselect: Optional[str] = "False"
+    playerIds: Optional[str] = None,
+    exclusiveselect: Optional[str] = "False",
+    onlyfavorite: Optional[str] = "False",
+    from_date: Optional[str] = Query(
+        None,
+        regex=r"^\d{4}-\d{2}-\d{2}$",
+        description="Start date for filtering stats in YYYY-MM-DD format",
+    ),
+    to_date: Optional[str] = Query(
+        None,
+        regex=r"^\d{4}-\d{2}-\d{2}$",
+        description="End date for filtering stats in YYYY-MM-DD format",
+    ),
 ):
+    only_favorite = onlyfavorite.lower() == "true"
+    exclusive = exclusiveselect.lower() == "true"
+
+    try:
+        from_date_obj = datetime.strptime(from_date, "%Y-%m-%d") if from_date else None
+        to_date_obj = datetime.strptime(to_date, "%Y-%m-%d") if to_date else None
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail="Invalid date format. Expected YYYY-MM-DD."
+        )
+
     # Fetching needed data from db
     try:
         base_query1 = """
-        SELECT SUM(num_tricks), MAX(num_cards) as num_cards
-        FROM player_scores
-        NATURAL JOIN rounds LEFT JOIN games on rounds.game_id = games.game_id
-        WHERE stand IS NOT NULL
+        SELECT SUM(ps.num_tricks) AS sum, MAX(r.num_cards) AS num_cards
+        FROM player_scores ps
+        NATURAL JOIN rounds r
+        LEFT JOIN games g ON r.game_id = g.game_id
+        LEFT JOIN game_players gp ON ps.game_player_id = gp.game_player_id
+        LEFT JOIN bonde_users bu ON gp.player_id = bu.player_id
+        WHERE ps.stand IS NOT NULL
+        AND ps.num_tricks IS NOT NULL
+        AND r.num_cards IS NOT NULL
         """
         base_query2 = """
         SELECT 
@@ -522,48 +586,54 @@ async def get_stats(
         JOIN 
             player_scores ps ON r.round_id = ps.round_id
         JOIN
-            games ON r.game_id = games.game_id
+            games g ON r.game_id = g.game_id
+        LEFT JOIN game_players gp ON ps.game_player_id = gp.game_player_id
+        LEFT JOIN bonde_users bu ON gp.player_id = bu.player_id
         WHERE 
             ps.num_tricks IS NOT NULL
         """
         base_query3 = """
-        select
+        SELECT
             bu.nickname,
             r.num_cards,
             ROUND(AVG(ps.num_tricks), 1) AS avg_tricks,
             COUNT(DISTINCT r.round_id) AS num_rounds
-        from
+        FROM
             player_scores ps
-        left join rounds r on
-            ps.round_id = r.round_id
-        left join game_players gp on
-            ps.game_player_id = gp.game_player_id
-        left join bonde_users bu on
-            gp.player_id = bu.player_id
-        left join games g on r.game_id = g.game_id 
+        LEFT JOIN rounds r ON ps.round_id = r.round_id
+        LEFT JOIN game_players gp ON ps.game_player_id = gp.game_player_id
+        LEFT JOIN bonde_users bu ON gp.player_id = bu.player_id
+        LEFT JOIN games g ON r.game_id = g.game_id 
+        WHERE g.status = 'finished'
         """
         base_query4 = """
-        select
+        SELECT
             bu.nickname,
             r.num_cards,
             ROUND(AVG(ps.num_tricks), 1) AS avg_tricks,
             COUNT(DISTINCT r.round_id) AS num_rounds
-        from
+        FROM
             player_scores ps
-        left join rounds r on
-            ps.round_id = r.round_id
-        left join game_players gp on
-            ps.game_player_id = gp.game_player_id
-        left join bonde_users bu on
-            gp.player_id = bu.player_id
-        left join games g on r.game_id = g.game_id 
+        LEFT JOIN rounds r ON ps.round_id = r.round_id
+        LEFT JOIN game_players gp ON ps.game_player_id = gp.game_player_id
+        LEFT JOIN bonde_users bu ON gp.player_id = bu.player_id
+        LEFT JOIN games g ON r.game_id = g.game_id 
+        WHERE ps.stand = TRUE
         """
-        exclusive = exclusiveselect.lower() == "true"
+
+        # Add only favorite filter if needed
+        if only_favorite:
+            favorite_filter = "AND bu.favorite = TRUE "
+            base_query1 += favorite_filter
+            base_query2 += favorite_filter
+            base_query3 += favorite_filter
+            base_query4 += favorite_filter
+
         # If playerIds are provided, filter results
         if playerIds:
             ids_list = playerIds.split(",")
             ids_list = [int(id) for id in ids_list]
-            player_condition = f" AND games.game_id IN (SELECT game_id \
+            player_condition = f" AND g.game_id IN (SELECT game_id \
                             FROM game_players \
                             WHERE player_id IN ({','.join([str(id) for id in ids_list])}) \
                             GROUP BY game_id"
@@ -575,37 +645,33 @@ async def get_stats(
                 player_condition += ")"
             base_query1 += player_condition
             base_query2 += player_condition
-            base_query3 += f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])}) and g.status = 'finished'"
-            base_query4 += f" WHERE gp.player_id IN ({','.join([str(id) for id in ids_list])}) and ps.stand = TRUE group by r.num_cards, bu.nickname"
-        else:
-            base_query3 += "WHERE g.status = 'finished'"
-            base_query4 += "WHERE ps.stand = TRUE group by r.num_cards, bu.nickname"
-        base_query1 += " GROUP BY round_id ORDER BY num_cards DESC;"
+            base_query3 += (
+                f" AND gp.player_id IN ({','.join([str(id) for id in ids_list])})"
+            )
+            base_query4 += (
+                f" AND gp.player_id IN ({','.join([str(id) for id in ids_list])})"
+            )
+
+        base_query1 += " GROUP BY r.round_id ORDER BY num_cards DESC;"
         base_query2 += (
-            "  GROUP BY r.num_cards, ps.num_tricks ORDER BY r.num_cards, ps.num_tricks"
+            " GROUP BY r.num_cards, ps.num_tricks ORDER BY r.num_cards, ps.num_tricks"
         )
-        base_query3 += " group by r.num_cards, bu.nickname"
+        base_query3 += " GROUP BY r.num_cards, bu.nickname"
+        base_query4 += " GROUP BY r.num_cards, bu.nickname"
 
-        print("Executing base_query1:", base_query1)
+        # Execute the queries and get the results
         result1 = await database.fetch_all(base_query1)
-        print("Result1:", result1)
-
-        print("Executing base_query2:", base_query2)
         result2 = await database.fetch_all(base_query2)
-        print("Result2:", result2)
-
-        print("Executing base_query3:", base_query3)
         result3 = await database.fetch_all(base_query3)
-        print("Result3:", result3)
-
-        print("Executing base_query4:", base_query4)
         result4 = await database.fetch_all(base_query4)
-        print("Result4:", result4)
 
         if not result1 or not result2 or not result3 or not result4:
             return Response(status_code=204)
 
-        player_earnings = await calc_player_earnings(playerIds)
+        print(from_date, to_date)
+        player_earnings = await calc_player_earnings(
+            playerIds, only_favorite, from_date_obj, to_date_obj
+        )
 
         bleedings_query = "select nickname, SUM(bleedings) as total_bleedings, SUM(warnings) as total_warnings from game_players left join bonde_users on game_players.player_id = bonde_users.player_id group by bonde_users.nickname order by total_bleedings DESC"
         bleedings = await database.fetch_all(bleedings_query)
@@ -641,7 +707,6 @@ async def get_stats(
 
             success_rate_data = dict()
             for row in result2:
-                print("row", row)
                 num_cards = row["num_cards"]
                 num_tricks = row["num_tricks"]
                 stand_percentage = row["stand_percentage"]

@@ -50,6 +50,12 @@ import {
   SimplePieChart,
   SuccessRates,
 } from "./StatsCharts";
+import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
+import dayjs, { Dayjs } from "dayjs";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import "dayjs/locale/nb";
+import { generateHolidayRanges } from "./helperFunctions";
+dayjs.locale("nb");
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -119,6 +125,17 @@ export default function BondeBridgeHome() {
 
   const [exclusiveSelect, setExclusiveSelect] = useState<boolean>(false);
 
+  const [onlyFavorite, setOnlyFavorite] = useState<boolean>(false);
+
+  const [fromDate, setFromDate] = useState<Dayjs | null>(null);
+  const [toDate, setToDate] = useState<Dayjs | null>(null);
+
+  const [selectedHoliday, setSelectedHoliday] = useState<string | undefined>(
+    undefined,
+  );
+
+  const holidays = generateHolidayRanges();
+
   const [onlyStandRounds, setOnlyStandRounds] = useState<boolean>(false);
 
   const [emptyStatsSet, setEmptyStatsSet] = useState<boolean>(false);
@@ -134,6 +151,17 @@ export default function BondeBridgeHome() {
 
   const [nickname, setNickname] = useState<string>("");
   const [error, setError] = useState<null | string>(null);
+
+  const handleHolidayChange = (event: SelectChangeEvent<string>) => {
+    const selectedHoliday = holidays.find(
+      (holiday) => holiday.label === event.target.value,
+    );
+    if (selectedHoliday) {
+      setFromDate(selectedHoliday.from);
+      setToDate(selectedHoliday.to);
+      setSelectedHoliday(event.target.value);
+    }
+  };
 
   async function initGame() {
     try {
@@ -178,9 +206,10 @@ export default function BondeBridgeHome() {
       const { created } = await roundsResponse.json();
       if (created) {
         handleSnackClick();
-        fetchGames();
-        setValue(0);
-        setPlayers([]);
+        navigate(`/bondebridge/${game_id}`);
+        // fetchGames();
+        // setValue(0);
+        // setPlayers([]);
       }
     } catch (error) {
       console.error("Error initializing game:", error);
@@ -348,6 +377,18 @@ export default function BondeBridgeHome() {
         queryParams.push("exclusiveselect=True");
       }
 
+      if (onlyFavorite) {
+        queryParams.push("onlyfavorite=True");
+      }
+
+      if (fromDate) {
+        queryParams.push(`from_date=${fromDate.format("YYYY-MM-DD")}`);
+      }
+
+      if (toDate) {
+        queryParams.push(`to_date=${toDate.format("YYYY-MM-DD")}`);
+      }
+
       if (queryParams.length) {
         endpoint += `?${queryParams.join("&")}`;
       }
@@ -376,10 +417,15 @@ export default function BondeBridgeHome() {
 
   useEffect(() => {
     fetchStats();
-  }, [selectedUserIDs, exclusiveSelect]);
+  }, [selectedUserIDs, exclusiveSelect, onlyFavorite]);
 
   const handleSwitchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setExclusiveSelect(event.target.checked);
+  };
+  const handleFavoriteSwitchChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    setOnlyFavorite(event.target.checked);
   };
 
   const handleStandSwitchChange = (
@@ -479,7 +525,7 @@ export default function BondeBridgeHome() {
                 style={{
                   margin: "20px",
                   backgroundColor:
-                    game.status == "in-progress" ? "#B2FFF9" : "#D4E6EC",
+                    game.status === "in-progress" ? "#B2FFF9" : "#D4E6EC",
                 }}
               >
                 <CardContent>
@@ -825,14 +871,30 @@ export default function BondeBridgeHome() {
                 }
                 label="Vis kun stats hvor alle de valgte spillere er involvert samtidig"
               />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={onlyFavorite}
+                    onChange={handleFavoriteSwitchChange}
+                    inputProps={{ "aria-label": "controlled" }}
+                  />
+                }
+                label="Vis kun stats for godgutta"
+              />
             </div>
             {stats ? (
               <>
                 <h2>UNDERMELDT VS OVERMELDT</h2>
                 <SimplePieChart
                   data={[
-                    { name: "Undermeldt", value: stats.perc_underbid },
-                    { name: "Overmeldt", value: 100 - stats.perc_underbid },
+                    {
+                      name: "Undermeldt",
+                      value: Number(stats.perc_underbid.toFixed(2)),
+                    },
+                    {
+                      name: "Overmeldt",
+                      value: Number((100 - stats.perc_underbid).toFixed(2)),
+                    },
                   ]}
                 />
                 <h2>GJ.SNITT OVER/UNDERMELDT PER ANTALL KORT</h2>
@@ -872,8 +934,62 @@ export default function BondeBridgeHome() {
                 <h2>Success rates</h2>
                 <SuccessRates successRateData={stats.success_rates} />
                 <h2>Inntjeninger/tap</h2>
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    slotProps={{ textField: { size: "small" } }}
+                    closeOnSelect
+                    label="Fra dato"
+                    value={fromDate}
+                    onChange={(newValue) => setFromDate(newValue)}
+                  />
+                  <br />
+                  <DatePicker
+                    slotProps={{ textField: { size: "small" } }}
+                    closeOnSelect
+                    label="Til dato"
+                    value={toDate}
+                    onChange={(newValue) => {
+                      console.log(newValue);
+                      setToDate(newValue);
+                    }}
+                  />
+                </LocalizationProvider>
+                <br />
+                <FormControl sx={{ width: 227.5 }}>
+                  <InputLabel size="small">Velg en ferie</InputLabel>
+                  <Select
+                    label="Velg en ferie"
+                    size="small"
+                    value={selectedHoliday}
+                    onChange={handleHolidayChange}
+                  >
+                    <MenuItem value="" disabled>
+                      Velg en ferie
+                    </MenuItem>
+                    {holidays.map((holiday, index) => (
+                      <MenuItem key={index} value={holiday.label}>
+                        {holiday.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <div style={{ display: "flex", marginTop: 10 }}>
+                  <Button variant="outlined" onClick={fetchStats}>
+                    Oppdater
+                  </Button>
+                  <Button
+                    color="warning"
+                    onClick={() => {
+                      setToDate(null);
+                      setFromDate(null);
+                      setSelectedHoliday("");
+                    }}
+                  >
+                    Fjern filtere
+                  </Button>
+                </div>
                 {Object.keys(stats.player_earnings).length === 0 ? (
-                  <Alert severity="info">
+                  <Alert severity="info" sx={{ marginTop: 2 }}>
                     Det finnes ingen spill med nøyaktig de valgte spillerne.
                   </Alert>
                 ) : (

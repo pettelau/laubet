@@ -43,11 +43,19 @@ const THEME = createTheme({
         contained: {
           backgroundColor: "#303c6c",
           color: "white",
+          "&:hover": {
+            backgroundColor: "#2a3560",
+          },
         },
         outlined: {
           borderColor: "#303c6c",
           border: "2px solid",
           color: "#303c6c",
+          "&:hover": {
+            borderColor: "#2a3560",
+            border: "2px solid",
+            color: "#2a3560",
+          },
         },
       },
     },

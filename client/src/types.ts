@@ -243,7 +243,11 @@ type SuccessRateInfo = {
 export type SuccessRateData = Record<string, Record<string, SuccessRateInfo>>;
 
 export type PlayerEarnings = {
-  [nickname: string]: number;
+  [nickname: string]: {
+    total_earnings: number;
+    num_games: number;
+    avg_earnings: number;
+  };
 };
 
 export type BleedingsStats = {

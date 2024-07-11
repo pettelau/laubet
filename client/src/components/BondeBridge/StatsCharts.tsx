@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 import {
   SimplePieChartProps,
@@ -32,6 +32,7 @@ import {
   TableFooter,
   TableHead,
   TableRow,
+  TableSortLabel,
 } from "@mui/material";
 
 const COLORS = ["#303C6C", "#00C49F"];
@@ -127,7 +128,7 @@ const needle = (
   cy: number,
   iR: number,
   oR: number,
-  color: string
+  color: string,
 ) => {
   const ang = 180 - 180 * ((value + 5) / total); // Transform the value range from [-5,5] to [0,180]
   const length = (iR + 2 * oR) / 3;
@@ -184,7 +185,7 @@ export const SuccessRates: React.FC<{ successRateData: SuccessRateData }> = ({
   const numberOfRows = numberOfDIfferentTricks + 1;
 
   const rowKeys = Object.keys(successRateData).sort(
-    (a, b) => parseInt(a) - parseInt(b)
+    (a, b) => parseInt(a) - parseInt(b),
   );
 
   const getColor = (value: number) => {
@@ -279,7 +280,7 @@ export const PlayerAggressionChart: React.FC<{
     return <></>;
   }
   const playerNames = Object.keys(aggressionData[0]).filter(
-    (key) => key !== "num_cards"
+    (key) => key !== "num_cards",
   );
 
   // Optionally, define a function or array to assign colors to each player's line
@@ -327,9 +328,25 @@ export const PlayerAggressionChart: React.FC<{
 export const PlayerEarningsTable: React.FC<{
   playerEarnings: PlayerEarnings;
 }> = ({ playerEarnings }) => {
+  const [sortConfig, setSortConfig] = useState<{
+    key: "total_earnings" | "avg_earnings" | "num_games";
+    direction: "asc" | "desc";
+  }>({ key: "total_earnings", direction: "desc" });
+
   const earningsArray = Object.entries(playerEarnings);
 
-  earningsArray.sort((a, b) => b[1] - a[1]);
+  const sortedEarningsArray = earningsArray.sort((a, b) => {
+    const key = sortConfig.key;
+    const direction = sortConfig.direction === "asc" ? 1 : -1;
+    return (a[1][key] - b[1][key]) * direction;
+  });
+
+  const handleSort = (key: "total_earnings" | "avg_earnings" | "num_games") => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
 
   return (
     <>
@@ -343,12 +360,46 @@ export const PlayerEarningsTable: React.FC<{
               <b>Spiller</b>
             </TableCell>
             <TableCell align="right">
-              <b>Balanse</b>
+              <TableSortLabel
+                active={sortConfig.key === "total_earnings"}
+                direction={
+                  sortConfig.key === "total_earnings"
+                    ? sortConfig.direction
+                    : "asc"
+                }
+                onClick={() => handleSort("total_earnings")}
+              >
+                <b>Totale Inntekter</b>
+              </TableSortLabel>
+            </TableCell>
+            <TableCell align="right">
+              <TableSortLabel
+                active={sortConfig.key === "avg_earnings"}
+                direction={
+                  sortConfig.key === "avg_earnings"
+                    ? sortConfig.direction
+                    : "asc"
+                }
+                onClick={() => handleSort("avg_earnings")}
+              >
+                <b>Gj.snitt Inntekter</b>
+              </TableSortLabel>
+            </TableCell>
+            <TableCell align="right">
+              <TableSortLabel
+                active={sortConfig.key === "num_games"}
+                direction={
+                  sortConfig.key === "num_games" ? sortConfig.direction : "asc"
+                }
+                onClick={() => handleSort("num_games")}
+              >
+                <b>Antall Spill</b>
+              </TableSortLabel>
             </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {earningsArray.map(([nickname, earnings], index: number) => (
+          {sortedEarningsArray.map(([nickname, earnings], index: number) => (
             <TableRow key={nickname}>
               <TableCell component="th" scope="row">
                 {index + 1}.
@@ -356,7 +407,9 @@ export const PlayerEarningsTable: React.FC<{
               <TableCell component="th" scope="row">
                 {nickname}
               </TableCell>
-              <TableCell align="right">{earnings} kr</TableCell>
+              <TableCell align="right">{earnings.total_earnings} kr</TableCell>
+              <TableCell align="right">{earnings.avg_earnings} kr</TableCell>
+              <TableCell align="right">{earnings.num_games}</TableCell>
             </TableRow>
           ))}
         </TableBody>

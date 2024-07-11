@@ -46,7 +46,7 @@ import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import PlayerCard from "./PlayerCard";
 import { BleedingsTable } from "./StatsCharts";
-import { getInitials } from "./helperFunctions";
+import { getInitials, isStartingPlayer } from "./helperFunctions";
 
 const style = {
   position: "absolute" as "absolute",
@@ -982,13 +982,19 @@ export default function BondeBridge() {
                                   <TableCell
                                     align="center"
                                     sx={{
-                                      borderRadius: "10px",
                                       height: 53,
                                       padding: 0,
                                       width: 300,
                                       backgroundColor:
                                         blueberryMode && !score.stand
                                           ? "white"
+                                          : currentRoundIndex === roundIndex &&
+                                            isStartingPlayer(
+                                              playerIndex,
+                                              round,
+                                            ) &&
+                                            round.locked
+                                          ? "#FFC987"
                                           : backgroundColor,
                                     }}
                                   >
@@ -996,6 +1002,9 @@ export default function BondeBridge() {
                                     currentGame?.status !== "finished" ? (
                                       <div>
                                         <button
+                                          style={{
+                                            display: round.locked ? "none" : "",
+                                          }}
                                           id="button-bonde"
                                           disabled={
                                             round.locked ||
@@ -1014,8 +1023,23 @@ export default function BondeBridge() {
                                         >
                                           -
                                         </button>
-                                        <span id="span-bonde">{numTricks}</span>
+                                        <span
+                                          id="span-bonde"
+                                          style={{
+                                            fontSize: round.locked
+                                              ? "24px"
+                                              : "16px",
+                                            fontWeight: round.locked
+                                              ? "bold"
+                                              : "normal",
+                                          }}
+                                        >
+                                          {numTricks}
+                                        </span>
                                         <button
+                                          style={{
+                                            display: round.locked ? "none" : "",
+                                          }}
                                           id="button-bonde"
                                           disabled={
                                             round.locked ||
@@ -1094,7 +1118,7 @@ export default function BondeBridge() {
                                       ) > round.num_cards ? (
                                         <div
                                           style={{
-                                            borderRadius: "10px",
+                                            borderRadius: "6px",
                                             backgroundColor:
                                               "rgba(255, 178, 64, 0.7)",
                                           }}
@@ -1112,6 +1136,7 @@ export default function BondeBridge() {
                                           style={{
                                             backgroundColor:
                                               "rgba(173, 216, 230, 0.7)",
+                                            borderRadius: "6px",
                                           }}
                                         >
                                           {round.num_cards -
@@ -1191,7 +1216,7 @@ export default function BondeBridge() {
                               )}
                             </TableCell>
                           )}
-                          <TableCell>
+                          <TableCell sx={{ textAlign: "center" }}>
                             {initials[rounds[roundIndex].dealer_index]}
                           </TableCell>
                         </TableRow>
