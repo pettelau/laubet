@@ -509,9 +509,9 @@ async def calc_player_earnings(
         else:
             continue
 
-    # Calculate average earnings per game
+    # Calculate average earnings per game and round to one decimal place
     avg_earnings = {
-        player_id: (player_earnings[player_id] / player_games_count[player_id])
+        player_id: round(player_earnings[player_id] / player_games_count[player_id], 1)
         for player_id in player_earnings
     }
 
