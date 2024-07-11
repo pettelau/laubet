@@ -1,7 +1,6 @@
 import psycopg2
 from psycopg2 import pool
-from .credentials import Credentials
-
+from credentials import Credentials
 
 pool = pool.SimpleConnectionPool(
     1,

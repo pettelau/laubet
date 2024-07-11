@@ -100,11 +100,13 @@ function Login() {
       headers: { Authorization: `Bearer ${localStorage.getItem("jwt")}` },
     });
     const resp = await response.json();
-    dispatch(setUserDetails(resp[0]));
+    dispatch(setUserDetails(resp));
   }
 
   useEffect(() => {
-    loginDetails();
+    if (loggedInUser) {
+      loginDetails();
+    }
   }, [loggedInUser]);
 
   // Init login part 1
@@ -116,7 +118,7 @@ function Login() {
           new URLSearchParams({ user: user, password: hashedPass }),
         {
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
       const resp = await response.json();
 
@@ -153,7 +155,7 @@ function Login() {
           toggleAlert(
             true,
             "Passord ble oppdatert! Du kan nå logge inn på nytt med det nye passordet",
-            "success"
+            "success",
           );
           setOpen(false);
           setNewPassword("");
@@ -174,7 +176,7 @@ function Login() {
       toggleAlert(
         true,
         "Det nye passordet må være minst 6 tegn langt, prøv igjen",
-        "error"
+        "error",
       );
       setOpen(false);
     }
@@ -193,7 +195,7 @@ function Login() {
   function toggleAlert(
     isActive: boolean,
     msg: string = "",
-    type: AlertColor = "info"
+    type: AlertColor = "info",
   ) {
     setAlert(isActive);
     setAlertType({ type: type, msg: msg });
