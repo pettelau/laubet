@@ -5,6 +5,7 @@ import {
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Divider,
   Fab,
   FormControl,
@@ -99,10 +100,6 @@ export default function BondeBridgeHome() {
     React.useState<boolean>(false);
   const handleNewPlayerClose = () => setNewPlayerModalOpen(false);
 
-  const [newGameModalOpen, setNewGameModalOpen] =
-    React.useState<boolean>(false);
-  const handleNewGameClose = () => setNewGameModalOpen(false);
-
   const [moneyMultiplier, setMoneyMultiplier] = useState<number | null>(2);
   const [extraCostLoser, setExtraCostLoser] = useState<number | null>(100);
   const [extraCostSecondLast, setExtraCostSecondLast] = useState<number | null>(
@@ -143,6 +140,9 @@ export default function BondeBridgeHome() {
   const [players, setPlayers] = useState<PlayerPreGame[]>([]);
 
   const [games, setGames] = useState<Game[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
 
   const [dealerIndex, setDealerIndex] = useState<number>(0);
 
@@ -351,14 +351,21 @@ export default function BondeBridgeHome() {
     }
   };
 
-  const fetchGames = async () => {
+  const fetchGames = async (pageNumber = 1) => {
+    setLoading(true);
     try {
-      const response = await fetch(`${url_path}api/bonde/games`);
+      const response = await fetch(
+        `${url_path}api/bonde/games?page=${pageNumber}`,
+      );
       const data = await response.json();
-      setGames(data.games);
+      setGames((prevGames) => [...prevGames, ...data.games]);
+      setTotalPages(data.totalPages);
+      setPage(pageNumber);
     } catch (err) {
       setError("Noe gikk galt. Kunne ikke hente eksisterende spill");
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -573,6 +580,12 @@ export default function BondeBridgeHome() {
               </Card>
             );
           })}
+          {loading && <CircularProgress />}
+          {page < totalPages && (
+            <Button onClick={() => fetchGames(page + 1)} disabled={loading}>
+              {loading ? "Laster inn..." : "Last flere spill"}
+            </Button>
+          )}
         </CustomTabPanel>
         <CustomTabPanel value={value} index={1}>
           <div id="rules">

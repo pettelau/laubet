@@ -4,6 +4,7 @@ import {
   Button,
   Checkbox,
   Chip,
+  CircularProgress,
   Divider,
   FormControl,
   Input,
@@ -739,7 +740,7 @@ export default function BondeBridge() {
     <>
       <div id="rules" style={{ marginBottom: "70px" }}>
         {rounds[0] === undefined ? (
-          <>Henter runde ...</>
+          <CircularProgress />
         ) : (
           <>
             {showGif && (
